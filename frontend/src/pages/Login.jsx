@@ -37,7 +37,6 @@ localStorage.setItem("user", JSON.stringify({
       setLoading(false);
     }
   };
-  console.log("ssss")
 
   return (
     <div className="auth-page">

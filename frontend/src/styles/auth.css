@@ -29,6 +29,13 @@ body {
   overflow: hidden;
 }
 
+.auth-page{
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 /* ===============================
    CARD (GLASS BROWN)
 ================================ */
@@ -37,6 +44,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   max-width: 380px;
   background: rgba(35, 25, 20, 0.65);
   backdrop-filter: blur(22px);

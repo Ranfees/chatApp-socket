@@ -1,0 +1,118 @@
+:root {
+  --bg-main: #0f0f0f;
+  --sidebar-bg: rgba(26, 20, 18, 0.95);
+  --accent-gold: #c89b6d;
+  --text-dim: #9f948d;
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+*{
+ box-sizing: border-box;
+ margin: 0;
+ padding: 0;
+}
+
+.app-container {
+  height: 100vh;
+  width: 100vw;
+  background: radial-gradient(circle at top right, #2d2019, #0f0f0f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  margin: 0;
+}
+
+.app-shell {
+  display: flex;
+  width: 100%;
+  max-width: 1600px;
+  height: 100%;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+}
+
+/* LEFT ICON RAIL */
+.nav-rail {
+  width: 64px;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-right: 1px solid var(--glass-border);
+}
+
+.nav-icon {
+  font-size: 20px;
+  margin-bottom: 25px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: 0.3s;
+}
+
+.nav-icon.active { opacity: 1; filter: drop-shadow(0 0 8px var(--accent-gold)); }
+
+/* SIDEBAR */
+.sidebar {
+  width: 350px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--glass-border);
+}
+
+.sidebar-header {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-header h1 { font-size: 22px; color: #fff; margin: 0; }
+
+.search-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  padding: 10px 15px;
+  margin: 0 15px 15px;
+  border-radius: 10px;
+  color: white;
+  width: calc(100% - 30px);
+}
+
+.chat-item {
+  display: flex;
+  padding: 15px;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.chat-item:hover, .chat-item.active {
+  background: rgba(200, 155, 109, 0.1);
+}
+
+.chat-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c89b6d, #6d4c31);
+  display: grid;
+  place-items: center;
+  font-weight: bold;
+}
+
+.chat-meta { flex: 1; }
+.chat-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.chat-name { font-weight: 600; color: #eee; }
+.chat-time { font-size: 11px; color: var(--text-dim); }
+.chat-preview { font-size: 13px; color: var(--text-dim); }
+
+.main-content {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.1);
+}
