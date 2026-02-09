@@ -5,3 +5,10 @@ export const registerUser = (data) =>
 
 export const loginUser = (data) =>
   api.post("/api/auth/login", data);
+
+export const logoutUser = () => {
+  localStorage.removeItem("token");
+};
+
+export const getUsers = () =>
+  api.get("/api/users");
