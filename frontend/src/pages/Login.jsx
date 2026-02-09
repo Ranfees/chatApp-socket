@@ -24,6 +24,12 @@ const Login = () => {
     try {
       const { data } = await loginUser(form);
       localStorage.setItem("token", data.token);
+localStorage.setItem("user", JSON.stringify({
+  id: data._id,
+  username: data.username,
+  email: data.email
+}));
+
       navigate("/"); // or /chat, /dashboard, etc
     } catch (err) {
       alert(err.response?.data?.message || "Login failed");
