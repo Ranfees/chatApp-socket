@@ -171,7 +171,7 @@ const styles = {
     width: "10px",
     height: "10px",
     borderRadius: "50%",
-    backgroundColor: "#4cd137", // Online green
+    backgroundColor: "#4cd137",
     marginLeft: "10px",
   },
   center: {
