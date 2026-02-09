@@ -1,24 +1,24 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-import {Route, Routes} from 'react-router'
-import Login from './pages/Login'
-import Signup from './pages/SignUp'
+import { Routes, Route, Navigate } from "react-router";
 import Home from "./pages/Home";
-
+import Chat from "./pages/Chat";
+import Login from "./pages/Login";
+import Signup from "./pages/SignUp";
+import HomeLayout from "./layouts/HomeLayout";
 
 function App() {
-
   return (
-    <>
-      <Routes>
-         <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-      </Routes>
-    </>
-  )
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+
+      {/* CHAT APP LAYOUT */}
+      <Route path="/" element={<HomeLayout />}>
+        <Route path="chat/:userId" element={<Chat />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/home" />} />
+    </Routes>
+  );
 }
 
-export default App
+export default App;
