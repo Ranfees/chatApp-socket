@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { registerUser } from "../api/route";
 import "../styles/auth.css";
 
@@ -14,9 +14,8 @@ const Signup = () => {
 
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
+  const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
-  };
 
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -76,8 +75,10 @@ const handleSubmit = async (e) => {
 
   return (
     <div className="auth-page">
+      <div className="auth-glow" />
+
       <form className="auth-card" onSubmit={handleSubmit}>
-        <h2>Create Account</h2>
+        <h2>Create account</h2>
         <p>Secure end-to-end encrypted chat</p>
 
         <input
@@ -93,7 +94,7 @@ const handleSubmit = async (e) => {
           className="auth-input"
           name="email"
           type="email"
-          placeholder="Email"
+          placeholder="Email address"
           value={form.email}
           onChange={handleChange}
           required
@@ -110,12 +111,12 @@ const handleSubmit = async (e) => {
         />
 
         <button className="auth-btn" disabled={loading}>
-          {loading ? "Creating..." : "Sign Up"}
+          {loading ? "Creating..." : "Create account"}
         </button>
 
         <div className="auth-footer">
           Already have an account?
-          <Link to="/login"> Login</Link>
+          <Link to="/login"> Sign in</Link>
         </div>
       </form>
     </div>

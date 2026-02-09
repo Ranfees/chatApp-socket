@@ -10,5 +10,6 @@ export const logoutUser = () => {
   localStorage.removeItem("token");
 };
 
-export const getUsers = () =>
+export const getUsers = () => {
   api.get("/api/users");
+};
