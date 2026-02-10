@@ -8,7 +8,6 @@ const socket = io(import.meta.env.VITE_BACKEND_URL, {
   auth: token ? { token } : {},
 });
 
-// 🔥 reconnect automatically after refresh
 if (token) {
   socket.connect();
 }

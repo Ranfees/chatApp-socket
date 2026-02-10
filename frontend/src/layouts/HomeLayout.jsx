@@ -29,6 +29,7 @@ const HomeLayout = () => {
     };
   }, []);
 
+  
   const handleLogout = () => {
     socket.disconnect();
     localStorage.removeItem("token");
