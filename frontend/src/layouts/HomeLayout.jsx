@@ -45,8 +45,8 @@ const HomeLayout = () => {
         <nav className="nav-rail">
           <div className="nav-top">
             <div className="nav-icon active">💬</div>
-            <div className="nav-icon">📞</div>
-            <div className="nav-icon">⭕</div>
+            {/* <div className="nav-icon">📞</div>
+            <div className="nav-icon">⭕</div> */}
           </div>
           <div className="nav-bottom">
             <div className="nav-avatar-small" onClick={handleLogout}>
