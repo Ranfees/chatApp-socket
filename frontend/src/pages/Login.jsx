@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { loginUser } from "../api/route";
+import socket from "../socket/socket";
 import "../styles/auth.css";
 
 const Login = () => {
@@ -23,14 +24,24 @@ const Login = () => {
 
     try {
       const { data } = await loginUser(form);
-      localStorage.setItem("token", data.token);
-localStorage.setItem("user", JSON.stringify({
-  id: data._id,
-  username: data.username,
-  email: data.email
-}));
 
-      navigate("/"); // or /chat, /dashboard, etc
+      localStorage.setItem("token", data.token);
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          id: data._id,
+          username: data.username,
+          email: data.email,
+        })
+      );
+
+      // 🔥 CONNECT SOCKET AFTER LOGIN
+      socket.auth = {
+        token: data.token,
+      };
+      socket.connect();
+
+      navigate("/");
     } catch (err) {
       alert(err.response?.data?.message || "Login failed");
     } finally {
