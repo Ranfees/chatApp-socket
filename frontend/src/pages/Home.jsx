@@ -44,7 +44,6 @@ const Home = () => {
         </div>
       </aside>
 
-      {/* RIGHT PANEL */}
       <main className="chat-area">
         <Outlet />
       </main>

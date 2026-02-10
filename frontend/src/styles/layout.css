@@ -116,3 +116,17 @@
   flex: 1;
   background: rgba(0, 0, 0, 0.1);
 }
+.chat-avatar {
+  position: relative;
+}
+
+.online-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  background: #22c55e;
+  border-radius: 50%;
+  border: 2px solid white;
+}

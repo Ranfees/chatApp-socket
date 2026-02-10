@@ -1,26 +1,134 @@
 import { useParams } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import socket from "../socket/socket";
 import "../styles/chat.css";
 
 const Chat = () => {
   const { userId } = useParams();
+  const myId = JSON.parse(localStorage.getItem("user"))?.id;
+
+  const [text, setText] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [typingUser, setTypingUser] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
+
+  const bottomRef = useRef();
+
+  useEffect(() => {
+    const local = JSON.parse(localStorage.getItem("chat_" + userId) || "[]");
+    setMessages(local);
+
+    const lastTime = local.length ? local[local.length - 1].createdAt : null;
+
+    fetch(`http://localhost:5000/api/messages/${userId}?after=${lastTime || ""}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    })
+      .then(res => res.json())
+      .then(newMsgs => {
+        if (newMsgs.length) {
+          const updated = [...local, ...newMsgs];
+          setMessages(updated);
+          localStorage.setItem("chat_" + userId, JSON.stringify(updated));
+        }
+      });
+  }, [userId]);
+
+
+  /* 🟢 ONLINE STATUS LISTENER */
+  useEffect(() => {
+    socket.on("online_users", (users) => {
+      setIsOnline(users.includes(userId));
+    });
+
+    return () => socket.off("online_users");
+  }, [userId]);
+
+  /* 🔥 SOCKET EVENTS */
+  useEffect(() => {
+    const handleReceive = (msg) => {
+      if (msg.sender === userId || msg.receiver === userId) {
+        setMessages(prev => {
+          const updated = [...prev, msg];
+          localStorage.setItem("chat_" + userId, JSON.stringify(updated));
+          return updated;
+        });
+
+        if (msg.sender === userId) {
+          socket.emit("message_delivered", msg._id);
+          socket.emit("message_seen", msg._id);
+        }
+      }
+    };
+
+    const handleStatus = ({ messageId, status }) => {
+      setMessages(prev => {
+        const updated = prev.map(m =>
+          m._id === messageId ? { ...m, status } : m
+        );
+        localStorage.setItem("chat_" + userId, JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    socket.on("receive_message", handleReceive);
+    socket.on("update_status", handleStatus);
+    socket.on("user_typing", (uid) => uid === userId && setTypingUser(true));
+    socket.on("user_stop_typing", (uid) => uid === userId && setTypingUser(false));
+
+    return () => {
+      socket.off("receive_message", handleReceive);
+      socket.off("update_status", handleStatus);
+      socket.off("user_typing");
+      socket.off("user_stop_typing");
+    };
+  }, [userId]);
+
+  /* 📜 AUTO SCROLL */
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, typingUser]);
+
+  /* 📤 SEND */
+  const sendMessage = () => {
+    if (!text.trim()) return;
+
+    socket.emit("send_message", { receiverId: userId, encryptedText: text });
+    socket.emit("stop_typing", userId);
+    setText("");
+  };
+
+  const handleTyping = (e) => {
+    setText(e.target.value);
+    socket.emit("typing", userId);
+
+    clearTimeout(window.typingTimeout);
+    window.typingTimeout = setTimeout(() => {
+      socket.emit("stop_typing", userId);
+    }, 1000);
+  };
 
   return (
     <div className="chat-window">
       <header className="chat-header">
-        <h4>User {userId}</h4>
-        <span>Online</span>
+        <h4>Chat</h4>
+        <span>{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
       </header>
 
       <div className="chat-messages">
-        <div className="chat-bubble other">Do we need to prepare a van?</div>
-        <div className="chat-bubble me">I think that's a good idea.</div>
-        <div className="chat-bubble other">Now how do we get that?</div>
-        <div className="chat-bubble me">We can use my dad’s van 🚐</div>
+        {messages.map(msg => (
+          <div key={msg._id} className={`chat-bubble ${msg.sender === myId ? "me" : "other"}`}>
+            {msg.encryptedText}
+            {msg.sender === myId && msg.status === "sent" && " ✓"}
+            {msg.sender === myId && msg.status === "delivered" && " ✓✓"}
+            {msg.sender === myId && msg.status === "seen" && " ✓✓"}
+          </div>
+        ))}
+        <div ref={bottomRef} />
       </div>
 
       <footer className="chat-input">
-        <input placeholder="Type a message…" />
-        <button>➤</button>
+        <input value={text} onChange={handleTyping} placeholder="Type a message…" />
+        <button onClick={sendMessage}>➤</button>
       </footer>
     </div>
   );

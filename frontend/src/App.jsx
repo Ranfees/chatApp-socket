@@ -4,6 +4,7 @@ import Chat from "./pages/Chat";
 import Login from "./pages/Login";
 import Signup from "./pages/SignUp";
 import HomeLayout from "./layouts/HomeLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
@@ -12,7 +13,12 @@ function App() {
       <Route path="/signup" element={<Signup />} />
 
       {/* CHAT APP LAYOUT */}
-      <Route path="/" element={<HomeLayout />}>
+       <Route path="/" element={
+          <ProtectedRoute>
+            <HomeLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="chat/:userId" element={<Chat />} />
       </Route>
 
