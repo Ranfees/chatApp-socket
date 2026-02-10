@@ -33,8 +33,6 @@ const Chat = () => {
       });
   }, [userId]);
 
-
-  /* 🟢 ONLINE STATUS LISTENER */
   useEffect(() => {
     socket.on("online_users", (users) => {
       setIsOnline(users.includes(userId));
@@ -43,7 +41,6 @@ const Chat = () => {
     return () => socket.off("online_users");
   }, [userId]);
 
-  /* 🔥 SOCKET EVENTS */
   useEffect(() => {
     const handleReceive = (msg) => {
       if (msg.sender === userId || msg.receiver === userId) {
@@ -88,7 +85,6 @@ const Chat = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUser]);
 
-  /* 📤 SEND */
   const sendMessage = () => {
     if (!text.trim()) return;
 
