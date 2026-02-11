@@ -12,22 +12,19 @@ exports.registerUser = async (req, res) => {
   try {
     const { username, email, password, publicKey } = req.body;
 
-    // Check if user exists
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create user
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
-      publicKey, // store user's public encryption key
+      publicKey, 
     });
 
     res.status(201).json({
@@ -42,20 +39,15 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-
-
-// ================= LOGIN =================
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
@@ -65,7 +57,7 @@ exports.loginUser = async (req, res) => {
       _id: user._id,
       username: user.username,
       email: user.email,
-      publicKey: user.publicKey, // useful for frontend encryption
+      publicKey: user.publicKey, 
       token: generateToken(user._id),
     });
 
