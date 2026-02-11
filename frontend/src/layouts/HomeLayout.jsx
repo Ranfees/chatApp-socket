@@ -56,7 +56,7 @@ const HomeLayout = () => {
         </nav>
 
         {/* CHAT LIST */}
-        <aside className="sidebar">
+        <aside className={`sidebar ${userId ? "mobile-hidden" : ""}`}>
           <header className="sidebar-header">
             <h1>Chats</h1>
           </header>
@@ -100,7 +100,7 @@ const HomeLayout = () => {
         </aside>
 
         {/* MAIN CHAT */}
-        <main className="main-content">
+       <main className={`main-content ${!userId ? "mobile-hidden" : ""}`}>
           <Outlet context={{ onlineUsers }} />
         </main>
       </div>

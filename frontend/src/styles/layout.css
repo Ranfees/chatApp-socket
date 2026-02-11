@@ -130,3 +130,41 @@
   border-radius: 50%;
   border: 2px solid white;
 }
+
+
+
+/* ... existing CSS ... */
+
+/* MOBILE RESPONSIVENESS */
+@media (max-width: 768px) {
+  .app-shell {
+    flex-direction: row; /* Keep horizontal but children will swap */
+    border-radius: 0;
+    border: none;
+  }
+
+  /* Hide the Nav Rail on mobile to save space (optional) */
+  /* .nav-rail {
+    display: none; 
+  } */
+
+  .sidebar {
+    width: 100%;
+    flex: 1;
+  }
+
+  .main-content {
+    width: 100%;
+    position: absolute; /* Take over the screen when active */
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: var(--bg-main);
+    z-index: 10;
+  }
+
+  /* Helper class to toggle visibility */
+  .mobile-hidden {
+    display: none !important;
+  }
+}
