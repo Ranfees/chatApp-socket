@@ -1,8 +1,8 @@
-import { useNavigate, useParams } from "react-router";
-import { useEffect, useRef, useState } from "react";
+import { useNavigate, useOutletContext, useParams } from "react-router";
+import {  useEffect, useRef, useState } from "react";
 import socket from "../socket/socket";
 import "../styles/chat.css";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, User, User2Icon, UserCircle, UserCircle2Icon } from "lucide-react";
 
 const Chat = () => {
   const navigate = useNavigate()
@@ -13,9 +13,11 @@ const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
+  const { users } = useOutletContext(); 
+  const receiver = users.find((u) => u._id === userId);
 
   const bottomRef = useRef();
-
+  console.log(typingUser)
   useEffect(() => {
     const local = JSON.parse(localStorage.getItem("chat_" + userId) || "[]");
     setMessages(local);
@@ -111,7 +113,10 @@ const Chat = () => {
         <button className="mobile-back-btn " onClick={() => navigate('/')}>
           <ArrowLeft/>
         </button>
-        <h4>Chat</h4>
+         <div className="chat-avatar">
+                {receiver?.username.charAt(0).toUpperCase()}
+              </div>
+        <h4>{receiver ? receiver.username.charAt(0).toUpperCase()+ receiver.username.slice(1) : "Chat"}</h4>
         <span>{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
       </header>
 

@@ -89,9 +89,9 @@ const HomeLayout = () => {
                       <span className="chat-time">12:45 PM</span>
                     </div>
 
-                    <div className="chat-preview">
+                    {/* <div className="chat-preview">
                       {isOnline ? "🟢 Online" : "⚫ Offline"}
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               );
@@ -101,7 +101,7 @@ const HomeLayout = () => {
 
         {/* MAIN CHAT */}
        <main className={`main-content ${!userId ? "mobile-hidden" : ""}`}>
-          <Outlet context={{ onlineUsers }} />
+          <Outlet context={{ onlineUsers,users }} />
         </main>
       </div>
     </div>
