@@ -99,8 +99,19 @@ const Chat = () => {
         </button>
 
         <div className="chat-avatar">
-          {receiver?.username?.charAt(0).toUpperCase()}
+          {receiver?.profilePic ? (
+            <img
+              src={receiver.profilePic}
+              alt={receiver.username}
+              className="chat-avatar-img"
+            />
+          ) : (
+            <span className="chat-avatar-letter">
+              {receiver?.username?.charAt(0).toUpperCase()}
+            </span>
+          )}
         </div>
+
 
         <h4>
           {receiver

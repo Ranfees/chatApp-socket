@@ -32,6 +32,7 @@ const Login = () => {
           id: data._id,
           username: data.username,
           email: data.email,
+          profilePic: data.profilePic,
         })
       );
 

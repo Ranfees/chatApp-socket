@@ -4,12 +4,14 @@ import api from "../api/axios";
 import socket from "../socket/socket";
 import "../styles/layout.css";
 import { LogOut } from "lucide-react";
+import defaultAvatar from '../assets/avatar.jpg'
 
 const HomeLayout = () => {
   const navigate = useNavigate();
   const { userId } = useParams();
   const [users, setUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const currentUser = JSON.parse(localStorage.getItem("user"));
 
   /* 🧠 LOAD USERS */
   useEffect(() => {
@@ -80,10 +82,27 @@ const HomeLayout = () => {
             <div className="nav-icon">⭕</div> */}
           </div>
           <div className="nav-bottom">
-            <div className="nav-avatar-small" onClick={handleLogout}>
-              <LogOut />
+
+            {/* Profile Avatar */}
+            <div className="nav-profile">
+              <img
+                src={
+                  currentUser?.profilePic
+                    ? `${currentUser.profilePic}`
+                    : defaultAvatar
+                }
+                alt="Profile"
+                className="nav-profile-img"
+              />
             </div>
+
+            {/* Logout */}
+            <div className="nav-avatar-small logout-btn" onClick={handleLogout}>
+              <LogOut size={18} />
+            </div>
+
           </div>
+
         </nav>
 
         {/* CHAT LIST */}
@@ -110,9 +129,21 @@ const HomeLayout = () => {
                   onClick={() => navigate(`/chat/${user._id}`)}
                 >
                   <div className="chat-avatar">
-                    {user.username[0].toUpperCase()}
+                    {user.profilePic ? (
+                      <img
+                        src={user.profilePic}
+                        alt={user.username}
+                        className="chat-avatar-img"
+                      />
+                    ) : (
+                      <span className="chat-avatar-letter">
+                        {user.username[0].toUpperCase()}
+                      </span>
+                    )}
+
                     {isOnline && <span className="online-dot"></span>}
                   </div>
+
 
                   <div className="chat-meta">
                     <div className="chat-row">
