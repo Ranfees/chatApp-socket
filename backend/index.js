@@ -26,7 +26,6 @@ require("./config/db")();
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
 
-app.use("/api/messages", require("./routes/messageRoutes"));
 
 // 🔥 attach sockets
 require("./sockets/socketHandler")(io);
