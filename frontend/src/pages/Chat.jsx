@@ -86,6 +86,7 @@ const Chat = () => {
     };
   }, [userId, myId]);
 
+  
   /* 📜 AUTO SCROLL */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
