@@ -3,6 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
+const connectCloudinary = require("./config/cloudinary");
+const fileUpload = require('express-fileupload')
 
 const app = express();
 const server = http.createServer(app);
@@ -13,6 +15,13 @@ const io = new Server(server, {
     credentials: true,
   },
 });
+
+app.use(fileUpload(
+    {
+    useTempFiles : true,
+    tempFileDir : '/tmp/'
+}
+));
 
 app.use(cors({
   origin: "http://localhost:5173",
@@ -29,6 +38,8 @@ app.use("/api/users", require("./routes/userRoutes"));
 require("./sockets/socketHandler")(io);
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () =>
+server.listen(PORT, () => {
+  connectCloudinary();
   console.log(`Server running on port ${PORT}`)
+}
 );
