@@ -106,6 +106,7 @@ const Chat = () => {
       socket.emit("stop_typing", userId);
     }, 1000);
   };
+  
 
   return (
     <div className="chat-window">

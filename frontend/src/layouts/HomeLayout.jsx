@@ -29,7 +29,38 @@ const HomeLayout = () => {
     };
   }, []);
 
-  
+  const formatLastSeen = (date) => {
+    // 1. Check if date is missing or null
+    if (!date) return "Offline";
+
+    const now = new Date();
+    const last = new Date(date);
+
+    // 2. Check if the date is invalid (e.g., "0" or invalid string)
+    if (isNaN(last.getTime()) || last.getTime() === 0) {
+      return "Offline";
+    }
+
+    const isToday = now.toDateString() === last.toDateString();
+
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+
+    const isYesterday = yesterday.toDateString() === last.toDateString();
+
+    if (isToday) {
+      return `Last seen ${last.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+    }
+
+    if (isYesterday) return "Last seen yesterday";
+
+    return `Last seen ${last.toLocaleDateString()}`;
+  };
+
+
   const handleLogout = () => {
     socket.disconnect();
     localStorage.removeItem("token");
@@ -86,7 +117,10 @@ const HomeLayout = () => {
                   <div className="chat-meta">
                     <div className="chat-row">
                       <span className="chat-name">{user.username}</span>
-                      <span className="chat-time">12:45 PM</span>
+                      <span className="chat-time">
+                        {isOnline ? "Online" : formatLastSeen(user.lastSeen)}
+                      </span>
+
                     </div>
 
                     {/* <div className="chat-preview">
@@ -100,8 +134,8 @@ const HomeLayout = () => {
         </aside>
 
         {/* MAIN CHAT */}
-       <main className={`main-content ${!userId ? "mobile-hidden" : ""}`}>
-          <Outlet context={{ onlineUsers,users }} />
+        <main className={`main-content ${!userId ? "mobile-hidden" : ""}`}>
+          <Outlet context={{ onlineUsers, users }} />
         </main>
       </div>
     </div>

@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const Message = require("../models/Message");
+const User = require("../models/User");
 
 const onlineUsers = new Map();
 
@@ -122,10 +123,21 @@ module.exports = (io) => {
     /* =======================================================
        6️⃣ DISCONNECT
     ======================================================== */
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       console.log("🔴 Disconnected:", userId);
+
       onlineUsers.delete(userId);
       io.emit("online_users", Array.from(onlineUsers.keys()));
+
+      // 🔥 UPDATE LAST SEEN
+      try {
+        await User.findByIdAndUpdate(userId, {
+          lastSeen: new Date(),
+        });
+      } catch (err) {
+        console.error("Last seen update error:", err);
+      }
     });
+
   });
 };
