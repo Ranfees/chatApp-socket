@@ -13,7 +13,6 @@ const HomeLayout = () => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const currentUser = JSON.parse(localStorage.getItem("user"));
 
-  /* 🧠 LOAD USERS */
   useEffect(() => {
     api.get("/api/users").then((res) => setUsers(res.data));
   }, []);
