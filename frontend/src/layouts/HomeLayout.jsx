@@ -45,8 +45,8 @@ const HomeLayout = () => {
         <nav className="nav-rail">
           <div className="nav-top">
             <div className="nav-icon active">💬</div>
-            <div className="nav-icon">📞</div>
-            <div className="nav-icon">⭕</div>
+            {/* <div className="nav-icon">📞</div>
+            <div className="nav-icon">⭕</div> */}
           </div>
           <div className="nav-bottom">
             <div className="nav-avatar-small" onClick={handleLogout}>
@@ -56,7 +56,7 @@ const HomeLayout = () => {
         </nav>
 
         {/* CHAT LIST */}
-        <aside className="sidebar">
+        <aside className={`sidebar ${userId ? "mobile-hidden" : ""}`}>
           <header className="sidebar-header">
             <h1>Chats</h1>
           </header>
@@ -100,7 +100,7 @@ const HomeLayout = () => {
         </aside>
 
         {/* MAIN CHAT */}
-        <main className="main-content">
+       <main className={`main-content ${!userId ? "mobile-hidden" : ""}`}>
           <Outlet context={{ onlineUsers }} />
         </main>
       </div>

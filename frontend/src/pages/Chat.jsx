@@ -1,9 +1,11 @@
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import socket from "../socket/socket";
 import "../styles/chat.css";
+import { ArrowLeft } from "lucide-react";
 
 const Chat = () => {
+  const navigate = useNavigate()
   const { userId } = useParams();
   const myId = JSON.parse(localStorage.getItem("user"))?.id;
 
@@ -106,6 +108,9 @@ const Chat = () => {
   return (
     <div className="chat-window">
       <header className="chat-header">
+        <button className="mobile-back-btn " onClick={() => navigate('/')}>
+          <ArrowLeft/>
+        </button>
         <h4>Chat</h4>
         <span>{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
       </header>
