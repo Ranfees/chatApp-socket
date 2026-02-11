@@ -5,7 +5,7 @@ import "../styles/chat.css";
 import { ArrowLeft } from "lucide-react";
 
 const Chat = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const { userId } = useParams();
   const myId = JSON.parse(localStorage.getItem("user"))?.id;
 
@@ -16,46 +16,59 @@ const Chat = () => {
 
   const bottomRef = useRef();
 
+  /* =======================================================
+     ⚡ LOAD LOCAL + FETCH ONLY NEW MESSAGES
+  ======================================================= */
   useEffect(() => {
     const local = JSON.parse(localStorage.getItem("chat_" + userId) || "[]");
     setMessages(local);
 
-    const lastTime = local.length ? local[local.length - 1].createdAt : null;
+    const lastId = local.length ? local[local.length - 1]._id : "";
 
-    fetch(`http://localhost:5000/api/messages/${userId}?after=${lastTime || ""}`, {
+    fetch(`http://localhost:5000/api/messages/${userId}?lastId=${lastId}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     })
       .then(res => res.json())
       .then(newMsgs => {
-        if (newMsgs.length) {
-          const updated = [...local, ...newMsgs];
-          setMessages(updated);
-          localStorage.setItem("chat_" + userId, JSON.stringify(updated));
-        }
-      });
-  }, [userId]);
+        if (!newMsgs.length) return;
 
-  useEffect(() => {
-    socket.on("online_users", (users) => {
-      setIsOnline(users.includes(userId));
-    });
-
-    return () => socket.off("online_users");
-  }, [userId]);
-
-  useEffect(() => {
-    const handleReceive = (msg) => {
-      if (msg.sender === userId || msg.receiver === userId) {
         setMessages(prev => {
-          const updated = [...prev, msg];
+          const updated = [...prev, ...newMsgs];
           localStorage.setItem("chat_" + userId, JSON.stringify(updated));
           return updated;
         });
+      })
+      .catch(() => {}); // fail silently
+  }, [userId]);
 
-        if (msg.sender === userId) {
-          socket.emit("message_delivered", msg._id);
-          socket.emit("message_seen", msg._id);
-        }
+  /* =======================================================
+     🟢 ONLINE STATUS
+  ======================================================= */
+  useEffect(() => {
+    const handleOnline = (users) => setIsOnline(users.includes(userId));
+    socket.on("online_users", handleOnline);
+    return () => socket.off("online_users", handleOnline);
+  }, [userId]);
+
+  /* =======================================================
+     📩 RECEIVE MESSAGES (REALTIME)
+  ======================================================= */
+  useEffect(() => {
+    const handleReceive = (msg) => {
+      if (msg.sender !== userId && msg.receiver !== userId) return;
+
+      setMessages(prev => {
+        if (prev.some(m => m._id === msg._id)) return prev;
+
+        const updated = [...prev, msg];
+        localStorage.setItem("chat_" + userId, JSON.stringify(updated));
+        return updated;
+      });
+
+      // If I am receiver, confirm delivery
+      if (msg.receiver === myId) {
+        socket.emit("message_delivered", msg._id);
+        socket.emit("message_seen", msg._id);
       }
     };
 
@@ -80,13 +93,18 @@ const Chat = () => {
       socket.off("user_typing");
       socket.off("user_stop_typing");
     };
-  }, [userId]);
+  }, [userId, myId]);
 
-  /* 📜 AUTO SCROLL */
+  /* =======================================================
+     📜 AUTO SCROLL
+  ======================================================= */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUser]);
 
+  /* =======================================================
+     ✉ SEND MESSAGE
+  ======================================================= */
   const sendMessage = () => {
     if (!text.trim()) return;
 
@@ -108,8 +126,8 @@ const Chat = () => {
   return (
     <div className="chat-window">
       <header className="chat-header">
-        <button className="mobile-back-btn " onClick={() => navigate('/')}>
-          <ArrowLeft/>
+        <button className="mobile-back-btn" onClick={() => navigate("/")}>
+          <ArrowLeft />
         </button>
         <h4>Chat</h4>
         <span>{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
