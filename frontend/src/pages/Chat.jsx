@@ -1,63 +1,53 @@
 import { useNavigate, useOutletContext, useParams } from "react-router";
-import {  useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import socket from "../socket/socket";
 import "../styles/chat.css";
-import { ArrowLeft, User, User2Icon, UserCircle, UserCircle2Icon } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 const Chat = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const { userId } = useParams();
+  const { users } = useOutletContext(); // from layout
   const myId = JSON.parse(localStorage.getItem("user"))?.id;
+
+  const receiver = users?.find((u) => u._id === userId);
 
   const [text, setText] = useState("");
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
-  const { users } = useOutletContext(); 
-  const receiver = users.find((u) => u._id === userId);
 
   const bottomRef = useRef();
-  console.log(typingUser)
+
+  /* ⚡ LOAD LOCAL CHAT ONLY */
   useEffect(() => {
     const local = JSON.parse(localStorage.getItem("chat_" + userId) || "[]");
     setMessages(local);
-
-    const lastTime = local.length ? local[local.length - 1].createdAt : null;
-
-    fetch(`http://localhost:5000/api/messages/${userId}?after=${lastTime || ""}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-    })
-      .then(res => res.json())
-      .then(newMsgs => {
-        if (newMsgs.length) {
-          const updated = [...local, ...newMsgs];
-          setMessages(updated);
-          localStorage.setItem("chat_" + userId, JSON.stringify(updated));
-        }
-      });
   }, [userId]);
 
+  /* 🟢 ONLINE STATUS */
   useEffect(() => {
-    socket.on("online_users", (users) => {
-      setIsOnline(users.includes(userId));
-    });
-
-    return () => socket.off("online_users");
+    const handleOnline = (onlineList) => setIsOnline(onlineList.includes(userId));
+    socket.on("online_users", handleOnline);
+    return () => socket.off("online_users", handleOnline);
   }, [userId]);
 
+  /* 🔥 RECEIVE MESSAGE */
   useEffect(() => {
     const handleReceive = (msg) => {
-      if (msg.sender === userId || msg.receiver === userId) {
-        setMessages(prev => {
-          const updated = [...prev, msg];
-          localStorage.setItem("chat_" + userId, JSON.stringify(updated));
-          return updated;
-        });
+      if (msg.sender !== userId && msg.receiver !== userId) return;
 
-        if (msg.sender === userId) {
-          socket.emit("message_delivered", msg._id);
-          socket.emit("message_seen", msg._id);
-        }
+      setMessages(prev => {
+        if (prev.some(m => m._id === msg._id)) return prev;
+
+        const updated = [...prev, msg];
+        localStorage.setItem("chat_" + userId, JSON.stringify(updated));
+        return updated;
+      });
+
+      // Confirm local save to server (for offline → online sync)
+      if (msg.receiver === myId) {
+        socket.emit("message_stored_locally", msg._id);
       }
     };
 
@@ -82,7 +72,7 @@ const Chat = () => {
       socket.off("user_typing");
       socket.off("user_stop_typing");
     };
-  }, [userId]);
+  }, [userId, myId]);
 
   /* 📜 AUTO SCROLL */
   useEffect(() => {
@@ -91,7 +81,6 @@ const Chat = () => {
 
   const sendMessage = () => {
     if (!text.trim()) return;
-
     socket.emit("send_message", { receiverId: userId, encryptedText: text });
     socket.emit("stop_typing", userId);
     setText("");
@@ -100,24 +89,25 @@ const Chat = () => {
   const handleTyping = (e) => {
     setText(e.target.value);
     socket.emit("typing", userId);
-
-    clearTimeout(window.typingTimeout);
-    window.typingTimeout = setTimeout(() => {
-      socket.emit("stop_typing", userId);
-    }, 1000);
   };
-  
 
   return (
     <div className="chat-window">
       <header className="chat-header">
-        <button className="mobile-back-btn " onClick={() => navigate('/')}>
-          <ArrowLeft/>
+        <button className="mobile-back-btn" onClick={() => navigate("/")}>
+          <ArrowLeft />
         </button>
-         <div className="chat-avatar">
-                {receiver?.username.charAt(0).toUpperCase()}
-              </div>
-        <h4>{receiver ? receiver.username.charAt(0).toUpperCase()+ receiver.username.slice(1) : "Chat"}</h4>
+
+        <div className="chat-avatar">
+          {receiver?.username?.charAt(0).toUpperCase()}
+        </div>
+
+        <h4>
+          {receiver
+            ? receiver.username.charAt(0).toUpperCase() + receiver.username.slice(1)
+            : "Chat"}
+        </h4>
+
         <span>{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
       </header>
 
@@ -125,7 +115,6 @@ const Chat = () => {
         {messages.map(msg => (
           <div key={msg._id} className={`chat-bubble ${msg.sender === myId ? "me" : "other"}`}>
             {msg.encryptedText}
-            {msg.sender === myId && msg.status === "sent" && " ✓"}
             {msg.sender === myId && msg.status === "delivered" && " ✓✓"}
             {msg.sender === myId && msg.status === "seen" && " ✓✓"}
           </div>
