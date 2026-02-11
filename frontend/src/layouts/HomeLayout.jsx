@@ -11,7 +11,6 @@ const HomeLayout = () => {
   const [users, setUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
 
-  /* 🧠 LOAD USERS */
   useEffect(() => {
     api.get("/api/users").then((res) => setUsers(res.data));
   }, []);

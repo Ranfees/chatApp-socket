@@ -26,8 +26,6 @@ require("./config/db")();
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
 
-
-// 🔥 attach sockets
 require("./sockets/socketHandler")(io);
 
 const PORT = process.env.PORT || 5000;

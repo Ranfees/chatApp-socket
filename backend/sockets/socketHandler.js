@@ -7,7 +7,7 @@ const onlineUsers = new Map();
 
 module.exports = (io) => {
 
-  /* 🔐 AUTH */
+  // authentication
   io.use((socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
@@ -25,97 +25,67 @@ module.exports = (io) => {
 
     onlineUsers.set(userId, socket.id);
     io.emit("online_users", Array.from(onlineUsers.keys()));
-    console.log("🟢 Connected:", userId);
 
-    /* =======================================================
-       1️⃣ SEND OFFLINE MESSAGES (DO NOT DELETE YET)
-    ======================================================== */
+    // send offline message
     const pending = await Message.find({ receiver: userId });
 
     for (let msg of pending) {
       io.to(userId).emit("receive_message", msg);
     }
 
-    /* =======================================================
-       2️⃣ SEND MESSAGE
-    ======================================================== */
+    // send message
     socket.on("send_message", async ({ receiverId, encryptedText }) => {
-      const receiverOnline = onlineUsers.has(receiverId);
-
-      // 🟢 BOTH ONLINE → TEMP MESSAGE (NO DB)
-      if (receiverOnline) {
-        const message = {
-          _id: new mongoose.Types.ObjectId(),
-          sender: userId,
-          receiver: receiverId,
-          encryptedText,
-          status: "delivered",
-          createdAt: new Date(),
-        };
-
-        io.to(receiverId).emit("receive_message", message);
-        io.to(userId).emit("receive_message", message);
-      }
-
-      // 🔴 RECEIVER OFFLINE → STORE IN DB
-      else {
-        const message = await Message.create({
-          sender: userId,
-          receiver: receiverId,
-          encryptedText,
-          status: "sent",
-        });
-
-        io.to(userId).emit("receive_message", message);
-      }
+  try {
+    // ✅ ALWAYS STORE
+    const message = await Message.create({
+      sender: userId,
+      receiver: receiverId,
+      encryptedText,
+      status: onlineUsers.has(receiverId) ? "delivered" : "sent",
     });
 
-    /* =======================================================
-       3️⃣ 🔥 DEVICE CONFIRMATION (THE FIX)
-    ======================================================== */
+    // ✅ SEND TO RECEIVER IF ONLINE
+    if (onlineUsers.has(receiverId)) {
+      io.to(receiverId).emit("receive_message", message);
+    }
+
+    // ✅ SEND BACK TO SENDER
+    io.to(userId).emit("receive_message", message);
+
+  } catch (err) {
+    console.error("Message send error:", err);
+  }
+});
+
+
     socket.on("message_stored_locally", async (messageId) => {
       const msg = await Message.findById(messageId);
       if (!msg) return;
 
-      // mark delivered
       msg.status = "delivered";
       await msg.save();
 
-      // notify sender UI
       io.to(msg.sender.toString()).emit("update_status", {
         messageId,
         status: "delivered",
       });
 
-      // NOW SAFE TO DELETE
       await Message.findByIdAndDelete(messageId);
-
-      console.log("✅ Message stored on device & removed from DB:", messageId);
     });
 
-    /* =======================================================
-       4️⃣ SEEN STATUS
-    ======================================================== */
     socket.on("message_seen", (id) => {
       io.emit("update_status", { messageId: id, status: "seen" });
     });
 
-    /* =======================================================
-       5️⃣ TYPING
-    ======================================================== */
     socket.on("typing", (rid) => io.to(rid).emit("user_typing", userId));
     socket.on("stop_typing", (rid) => io.to(rid).emit("user_stop_typing", userId));
 
-    /* =======================================================
-       6️⃣ DISCONNECT
-    ======================================================== */
     socket.on("disconnect", async () => {
       console.log("🔴 Disconnected:", userId);
 
       onlineUsers.delete(userId);
       io.emit("online_users", Array.from(onlineUsers.keys()));
 
-      // 🔥 UPDATE LAST SEEN
       try {
         await User.findByIdAndUpdate(userId, {
           lastSeen: new Date(),

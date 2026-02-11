@@ -5,7 +5,7 @@ exports.protect = async (req, res, next) => {
   let token;
 
   try {
-    // Token from header
+    
     if (req.headers.authorization?.startsWith("Bearer")) {
       token = req.headers.authorization.split(" ")[1];
 

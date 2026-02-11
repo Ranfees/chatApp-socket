@@ -7,56 +7,68 @@ import { ArrowLeft } from "lucide-react";
 const Chat = () => {
   const navigate = useNavigate();
   const { userId } = useParams();
-  const { users } = useOutletContext(); // from layout
+  const { users, onlineUsers } = useOutletContext(); 
+
   const myId = JSON.parse(localStorage.getItem("user"))?.id;
 
+  const chatKey = [myId, userId].sort().join("_");
+  
   const receiver = users?.find((u) => u._id === userId);
+ 
+  const isOnline = onlineUsers.includes(userId);
 
   const [text, setText] = useState("");
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(false);
-  const [isOnline, setIsOnline] = useState(false);
+
 
   const bottomRef = useRef();
 
   /* ⚡ LOAD LOCAL CHAT ONLY */
-  useEffect(() => {
-    const local = JSON.parse(localStorage.getItem("chat_" + userId) || "[]");
-    setMessages(local);
-  }, [userId]);
+ useEffect(() => {
+  const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
 
-  /* 🟢 ONLINE STATUS */
-  useEffect(() => {
-    const handleOnline = (onlineList) => setIsOnline(onlineList.includes(userId));
-    socket.on("online_users", handleOnline);
-    return () => socket.off("online_users", handleOnline);
-  }, [userId]);
+  // 🔥 Remove duplicates by _id
+  const unique = Array.from(
+    new Map(local.map(m => [m._id?.toString(), m])).values()
+  );
+
+  setMessages(unique);
+  localStorage.setItem("chat_" + chatKey, JSON.stringify(unique));
+}, [userId]);
+
 
   /* 🔥 RECEIVE MESSAGE */
   useEffect(() => {
-    const handleReceive = (msg) => {
-      if (msg.sender !== userId && msg.receiver !== userId) return;
+  const handleReceive = (msg) => {
+  const isMyMessage =
+    (msg.sender === myId && msg.receiver === userId) ||
+    (msg.sender === userId && msg.receiver === myId);
 
-      setMessages(prev => {
-        if (prev.some(m => m._id === msg._id)) return prev;
+  if (!isMyMessage) return;
 
-        const updated = [...prev, msg];
-        localStorage.setItem("chat_" + userId, JSON.stringify(updated));
-        return updated;
-      });
+  setMessages(prev => {
+    if (prev.find(m => m._id?.toString() === msg._id?.toString())) {
+      return prev;
+    }
 
-      // Confirm local save to server (for offline → online sync)
-      if (msg.receiver === myId) {
-        socket.emit("message_stored_locally", msg._id);
-      }
-    };
+    const updated = [...prev, msg];
+    localStorage.setItem("chat_" + chatKey, JSON.stringify(updated));
+    return updated;
+  });
+
+  if (msg.receiver === myId) {
+    socket.emit("message_stored_locally", msg._id);
+  }
+};
+
 
     const handleStatus = ({ messageId, status }) => {
       setMessages(prev => {
         const updated = prev.map(m =>
           m._id === messageId ? { ...m, status } : m
         );
-        localStorage.setItem("chat_" + userId, JSON.stringify(updated));
+        localStorage.setItem("chat_" + chatKey, JSON.stringify(updated));
         return updated;
       });
     };
