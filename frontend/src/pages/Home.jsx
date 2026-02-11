@@ -14,7 +14,6 @@ const Home = () => {
 
   return (
     <div className="home-page">
-      {/* SIDEBAR */}
       <aside className="sidebar">
         <h2>Chats</h2>
 
