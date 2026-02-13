@@ -171,35 +171,36 @@ const Chat = () => {
 
   return (
     <div className="chat-window">
-      <header className="chat-header">
-        <div className="header-left">
-          <button className="mobile-back-btn" onClick={() => navigate("/")}>
-            <ArrowLeft />
-          </button>
-          
-          <div className="chat-avatar">
-            {receiver?.profilePic ? (
-              <img src={receiver.profilePic} alt="" className="chat-avatar-img" />
-            ) : (
-              <span className="chat-avatar-letter">{receiver?.username?.charAt(0).toUpperCase()}</span>
-            )}
-          </div>
+    <header className="chat-header">
+  <div className="header-left">
+    <button className="mobile-back-btn" onClick={() => navigate("/")}>
+      <ArrowLeft />
+    </button>
+    
+    <div className="chat-avatar">
+      {receiver?.profilePic ? (
+        <img src={receiver.profilePic} alt="" className="chat-avatar-img" />
+      ) : (
+        <span className="chat-avatar-letter">{receiver?.username?.charAt(0).toUpperCase()}</span>
+      )}
+    </div>
 
-          <div className="header-info">
-            <h4>{receiver?.username ? receiver.username.charAt(0).toUpperCase() + receiver.username.slice(1) : "Chat"}</h4>
-            <span className="status-text">{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
-          </div>
-        </div>
+    <div className="header-info">
+      <h4>{receiver?.username ? receiver.username.charAt(0).toUpperCase() + receiver.username.slice(1) : "Chat"}</h4>
+      <span className="status-text">{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
+    </div>
+  </div>
 
-        <div className="call-actions">
-          <button className="call-btn" onClick={() => startCall('audio')} title="Voice Call">
-            <Phone size={20} />
-          </button>
-          <button className="call-btn" onClick={() => startCall('video')} title="Video Call">
-            <Video size={20} />
-          </button>
-        </div>
-      </header>
+  {/* Ensure this div is OUTSIDE header-left but INSIDE chat-header */}
+  <div className="call-actions">
+    <button className="call-btn" onClick={() => startCall('audio')}>
+      <Phone size={20} />
+    </button>
+    <button className="call-btn" onClick={() => startCall('video')}>
+      <Video size={20} />
+    </button>
+  </div>
+</header>
 
       <div className="chat-messages">
         {displayMessages.map((msg) => (
