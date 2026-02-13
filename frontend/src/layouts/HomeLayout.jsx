@@ -12,6 +12,7 @@ const HomeLayout = () => {
   const [users, setUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const currentUser = JSON.parse(localStorage.getItem("user"));
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     api.get("/api/users").then((res) => setUsers(res.data));
@@ -61,13 +62,16 @@ const HomeLayout = () => {
     return `Last seen ${last.toLocaleDateString()}`;
   };
 
-
   const handleLogout = () => {
     socket.disconnect();
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/login");
   };
+
+  const filteredUsers = users.filter((user) =>
+    user.username.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="app-container">
@@ -114,11 +118,14 @@ const HomeLayout = () => {
             <input
               className="search-input"
               placeholder="Search or start new chat"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
+
           </div>
 
           <div className="chat-list">
-            {users.map((user) => {
+            {filteredUsers.map((user) => {
               const isOnline = onlineUsers.includes(user._id);
 
               return (
