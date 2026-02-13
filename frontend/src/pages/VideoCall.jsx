@@ -10,11 +10,10 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
   const peerInstance = useRef(null);
 
   useEffect(() => {
-    // 1. Initialize Peer
+    // 1. Initialize Peer with your MongoDB ID as the Peer ID
     const peer = new Peer(myId);
     peerInstance.current = peer;
 
-    // 2. Get Media (Video or Audio only)
     const constraints = { 
       video: type === 'video', 
       audio: true 
@@ -24,7 +23,7 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
       setMyStream(stream);
       if (myVideoRef.current) myVideoRef.current.srcObject = stream;
 
-      // Handle Incoming Call inside the Peer session
+      // Listen for incoming PeerJS calls
       peer.on('call', (call) => {
         call.answer(stream);
         call.on('stream', (userStream) => {
@@ -32,29 +31,44 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
           if (remoteVideoRef.current) remoteVideoRef.current.srcObject = userStream;
         });
       });
+
+      // 2. IMPORTANT: Automatically trigger the call to the remote user
+      // We only do this if we are the "caller"
+      const call = peer.call(remoteUserId, stream);
+      if (call) {
+        call.on('stream', (userStream) => {
+          setRemoteStream(userStream);
+          if (remoteVideoRef.current) remoteVideoRef.current.srcObject = userStream;
+        });
+      }
+    }).catch(err => {
+      console.error("Failed to get local stream", err);
+      alert("Please allow camera/microphone access");
     });
 
     return () => {
       peer.destroy();
-      myStream?.getTracks().forEach(track => track.stop());
+      // Stop the camera/mic tracks when the component unmounts
+      if (myStream) {
+        myStream.getTracks().forEach(track => track.stop());
+      }
     };
-  }, []);
-
-  const startCall = (targetPeerId) => {
-    const call = peerInstance.current.call(targetPeerId, myStream);
-    call.on('stream', (userStream) => {
-      setRemoteStream(userStream);
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = userStream;
-    });
-  };
+  }, [myId, remoteUserId]); // Depend on these IDs
 
   return (
     <div className="call-overlay">
       <div className="video-grid">
         <video playsInline muted ref={myVideoRef} autoPlay className="small-video" />
-        {remoteStream && <video playsInline ref={remoteVideoRef} autoPlay className="main-video" />}
+        {remoteStream ? (
+           <video playsInline ref={remoteVideoRef} autoPlay className="main-video" />
+        ) : (
+           <div className="call-loading">Connecting...</div>
+        )}
       </div>
       <button onClick={onEnd} className="end-call-btn">Hang Up</button>
     </div>
   );
 };
+
+// This line is what your error message was looking for!
+export default VideoCall;

@@ -203,3 +203,57 @@
 }
 
 .hangup-btn:hover { background: #cc0000; }
+/* Fix the header layout */
+.chat-header {
+  display: flex;
+  justify-content: space-between; /* This pushes actions to the right */
+  align-items: center;
+  padding: 10px 20px;
+  background: rgba(35, 25, 20, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-info h4 {
+  margin: 0;
+  font-size: 16px;
+  color: white;
+}
+
+.status-text {
+  font-size: 12px;
+  color: #9f948d;
+}
+
+/* Style the call buttons */
+.call-actions {
+  display: flex;
+  gap: 15px;
+}
+
+.call-btn {
+  background: transparent;
+  border: none;
+  color: #c89b6d; /* Your accent gold color */
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.call-btn:hover {
+  background: rgba(200, 155, 109, 0.1);
+}
+
+/* Ensure icons are visible */
+.call-btn svg {
+  display: block;
+}
