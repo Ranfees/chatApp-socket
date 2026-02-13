@@ -41,27 +41,34 @@ const Chat = () => {
 
   /*  RECEIVE MESSAGE */
   useEffect(() => {
-    const handleReceive = (msg) => {
-      const isMyMessage =
-        (msg.sender === myId && msg.receiver === userId) ||
-        (msg.sender === userId && msg.receiver === myId);
+   const handleReceive = (msg) => {
+  // 1. Determine which chat this message belongs to
+  // If I sent it, use receiver. If I received it, use sender.
+  const otherPartyId = msg.sender === myId ? msg.receiver : msg.sender;
+  const targetChatKey = [myId, otherPartyId].sort().join("_");
 
-      if (!isMyMessage) return;
+  // 2. ALWAYS save to localStorage so the data isn't lost
+  const localData = JSON.parse(localStorage.getItem("chat_" + targetChatKey) || "[]");
+  
+  // Prevent duplicates
+  if (!localData.find(m => m._id === msg._id)) {
+    const updatedLocal = [...localData, msg];
+    localStorage.setItem("chat_" + targetChatKey, JSON.stringify(updatedLocal));
+  }
 
-      setMessages(prev => {
-        if (prev.find(m => m._id?.toString() === msg._id?.toString())) {
-          return prev;
-        }
+  // 3. ONLY update the UI state if I am currently chatting with this person
+  if (otherPartyId === userId) {
+    setMessages(prev => {
+      if (prev.find(m => m._id === msg._id)) return prev;
+      return [...prev, msg];
+    });
+  }
 
-        const updated = [...prev, msg];
-        localStorage.setItem("chat_" + chatKey, JSON.stringify(updated));
-        return updated;
-      });
-
-      if (msg.receiver === myId) {
-        socket.emit("message_stored_locally", msg._id);
-      }
-    };
+  // 4. Acknowledge receipt to backend
+  if (msg.receiver === myId) {
+    socket.emit("message_stored_locally", msg._id);
+  }
+};
 
 
     const handleStatus = ({ messageId, status }) => {

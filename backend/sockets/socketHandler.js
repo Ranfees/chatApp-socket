@@ -7,7 +7,6 @@ const onlineUsers = new Map();
 
 module.exports = (io) => {
 
-  // authentication
   io.use((socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
@@ -26,14 +25,12 @@ module.exports = (io) => {
     onlineUsers.set(userId, socket.id);
     io.emit("online_users", Array.from(onlineUsers.keys()));
 
-    // send offline message
     const pending = await Message.find({ receiver: userId });
 
     for (let msg of pending) {
       io.to(userId).emit("receive_message", msg);
     }
 
-    // send message
     socket.on("send_message", async ({ receiverId, encReceiver, encSender }) => {
       try {
         const message = await Message.create({
@@ -44,12 +41,10 @@ module.exports = (io) => {
           status: onlineUsers.has(receiverId) ? "delivered" : "sent",
         });
 
-        // ✅ SEND TO RECEIVER IF ONLINE
         if (onlineUsers.has(receiverId)) {
           io.to(receiverId).emit("receive_message", message);
         }
 
-        // ✅ SEND BACK TO SENDER
         io.to(userId).emit("receive_message", message);
 
       } catch (err) {
@@ -81,7 +76,7 @@ module.exports = (io) => {
     socket.on("stop_typing", (rid) => io.to(rid).emit("user_stop_typing", userId));
 
     socket.on("disconnect", async () => {
-      console.log("🔴 Disconnected:", userId);
+      console.log(" Disconnected:", userId);
 
       onlineUsers.delete(userId);
       io.emit("online_users", Array.from(onlineUsers.keys()));
