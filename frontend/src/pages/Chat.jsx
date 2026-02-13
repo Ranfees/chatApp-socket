@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import socket from "../socket/socket";
 import "../styles/chat.css";
 import { ArrowLeft } from "lucide-react";
+import { encryptText, decryptText } from "../utils/crypto"
 
 const Chat = () => {
   const navigate = useNavigate();
