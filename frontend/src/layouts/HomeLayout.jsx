@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useParams } from "react-router";
+import { Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import socket from "../socket/socket";
@@ -7,17 +7,20 @@ import { LogOut } from "lucide-react";
 import defaultAvatar from '../assets/avatar.jpg'
 
 const HomeLayout = () => {
+  const location = useLocation();
+  const isProfile = location.pathname === "/profile";
   const navigate = useNavigate();
   const { userId } = useParams();
   const [users, setUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const currentUser = JSON.parse(localStorage.getItem("user"));
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     api.get("/api/users").then((res) => setUsers(res.data));
   }, []);
 
-  /* 🟢 ONLINE USERS LISTENER */
+  /* ONLINE USERS LISTENER */
   useEffect(() => {
     const handleOnlineUsers = (users) => {
       setOnlineUsers(users);
@@ -61,7 +64,6 @@ const HomeLayout = () => {
     return `Last seen ${last.toLocaleDateString()}`;
   };
 
-
   const handleLogout = () => {
     socket.disconnect();
     localStorage.removeItem("token");
@@ -69,21 +71,22 @@ const HomeLayout = () => {
     navigate("/login");
   };
 
+  const filteredUsers = users.filter((user) =>
+    user.username.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="app-container">
       <div className="app-shell">
 
-        {/* NAV RAIL */}
         <nav className="nav-rail">
           <div className="nav-top">
-            <div className="nav-icon active">💬</div>
-            {/* <div className="nav-icon">📞</div>
-            <div className="nav-icon">⭕</div> */}
+            <div className="nav-icon active" onClick={() => navigate("/")}>💬</div>
+            {/* <div className="nav-icon">📞</div>*/}
           </div>
           <div className="nav-bottom">
 
-            {/* Profile Avatar */}
-            <div className="nav-profile">
+            <div className="nav-profile" onClick={() => navigate("/profile")}>
               <img
                 src={
                   currentUser?.profilePic
@@ -95,17 +98,13 @@ const HomeLayout = () => {
               />
             </div>
 
-            {/* Logout */}
             <div className="nav-avatar-small logout-btn" onClick={handleLogout}>
               <LogOut size={18} />
             </div>
-
           </div>
-
         </nav>
 
-        {/* CHAT LIST */}
-        <aside className={`sidebar ${userId ? "mobile-hidden" : ""}`}>
+        <aside className={`sidebar ${(userId || isProfile) ? "mobile-hidden" : ""} ${isProfile ? "desktop-hidden" : ""}`}>
           <header className="sidebar-header">
             <h1>Chats</h1>
           </header>
@@ -114,11 +113,13 @@ const HomeLayout = () => {
             <input
               className="search-input"
               placeholder="Search or start new chat"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
           <div className="chat-list">
-            {users.map((user) => {
+            {filteredUsers.map((user) => {
               const isOnline = onlineUsers.includes(user._id);
 
               return (
@@ -150,12 +151,7 @@ const HomeLayout = () => {
                       <span className="chat-time">
                         {isOnline ? "Online" : formatLastSeen(user.lastSeen)}
                       </span>
-
                     </div>
-
-                    {/* <div className="chat-preview">
-                      {isOnline ? "🟢 Online" : "⚫ Offline"}
-                    </div> */}
                   </div>
                 </div>
               );
@@ -163,8 +159,7 @@ const HomeLayout = () => {
           </div>
         </aside>
 
-        {/* MAIN CHAT */}
-        <main className={`main-content ${!userId ? "mobile-hidden" : ""}`}>
+       <main className={`main-content ${(!userId && !isProfile) ? "mobile-hidden" : ""}`}>
           <Outlet context={{ onlineUsers, users }} />
         </main>
       </div>

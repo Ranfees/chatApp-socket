@@ -1,63 +1,62 @@
-// src/utils/crypto.js
-
-// Helper to convert Base64 to ArrayBuffer
-const base64ToArrayBuffer = (base64) => {
-  const binaryString = window.atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+const base64ToBuffer = (base64) => {
+  // Ensure we have a string and remove any whitespace/newlines
+  if (!base64 || typeof base64 !== 'string') {
+    throw new Error("Invalid Base64 string provided to base64ToBuffer");
   }
-  return bytes.buffer;
-};
-
-// Encrypt with Receiver's Public Key
-export const encryptText = async (text, publicKeyBase64) => {
+  
+  const cleanBase64 = base64.trim().replace(/\s/g, '');
+  
   try {
-    const keyBuffer = base64ToArrayBuffer(publicKeyBase64);
-    const publicKey = await window.crypto.subtle.importKey(
-      "spki",
-      keyBuffer,
-      { name: "RSA-OAEP", hash: "SHA-256" },
-      false,
-      ["encrypt"]
-    );
-
-    const encodedText = new TextEncoder().encode(text);
-    const encryptedBuffer = await window.crypto.subtle.encrypt(
-      { name: "RSA-OAEP" },
-      publicKey,
-      encodedText
-    );
-
-    return btoa(String.fromCharCode(...new Uint8Array(encryptedBuffer)));
-  } catch (error) {
-    console.error("Encryption failed:", error);
-    return null;
+    const binary = window.atob(cleanBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+  } catch (e) {
+    console.error("atob decoding failed:", e);
+    throw e;
   }
 };
 
-// Decrypt with My Private Key
-export const decryptText = async (encryptedBase64, privateKeyBase64) => {
+const bufferToBase64 = (buffer) => {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+};
+
+// Encrypt for a specific Public Key
+export const encryptFor = async (text, publicKeyBase64) => {
+  const publicKey = await window.crypto.subtle.importKey(
+    "spki",
+    base64ToBuffer(publicKeyBase64),
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    true,
+    ["encrypt"]
+  );
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: "RSA-OAEP" },
+    publicKey,
+    new TextEncoder().encode(text)
+  );
+  return bufferToBase64(encrypted);
+};
+
+// Decrypt using your Private Key
+export const decryptWith = async (encryptedBase64, privateKeyBase64) => {
   try {
-    const keyBuffer = base64ToArrayBuffer(privateKeyBase64);
     const privateKey = await window.crypto.subtle.importKey(
       "pkcs8",
-      keyBuffer,
+      base64ToBuffer(privateKeyBase64),
       { name: "RSA-OAEP", hash: "SHA-256" },
-      false,
+      true,
       ["decrypt"]
     );
-
-    const encryptedBuffer = base64ToArrayBuffer(encryptedBase64);
-    const decryptedBuffer = await window.crypto.subtle.decrypt(
+    const decrypted = await window.crypto.subtle.decrypt(
       { name: "RSA-OAEP" },
       privateKey,
-      encryptedBuffer
+      base64ToBuffer(encryptedBase64)
     );
-
-    return new TextDecoder().decode(decryptedBuffer);
-  } catch (error) {
-    console.error("Decryption failed:", error);
+    return new TextDecoder().decode(decrypted);
+  } catch (err) {
     return "[Decryption Error]";
   }
 };

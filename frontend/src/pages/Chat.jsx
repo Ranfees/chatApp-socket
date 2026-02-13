@@ -3,65 +3,65 @@ import { useEffect, useRef, useState } from "react";
 import socket from "../socket/socket";
 import "../styles/chat.css";
 import { ArrowLeft } from "lucide-react";
-import { encryptText, decryptText } from "../utils/crypto"
+import { decryptWith, encryptFor } from "../utils/crypto";
 
 const Chat = () => {
   const navigate = useNavigate();
   const { userId } = useParams();
-  const { users, onlineUsers } = useOutletContext(); 
+  const { users, onlineUsers } = useOutletContext();
 
   const myId = JSON.parse(localStorage.getItem("user"))?.id;
 
   const chatKey = [myId, userId].sort().join("_");
-  
+
   const receiver = users?.find((u) => u._id === userId);
- 
+
   const isOnline = onlineUsers.includes(userId);
 
   const [text, setText] = useState("");
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(false);
-
+  const [displayMessages, setDisplayMessages] = useState([]);
 
   const bottomRef = useRef();
 
-  /* ⚡ LOAD LOCAL CHAT ONLY */
- useEffect(() => {
-  const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
-
-  // 🔥 Remove duplicates by _id
-  const unique = Array.from(
-    new Map(local.map(m => [m._id?.toString(), m])).values()
-  );
-
-  setMessages(unique);
-  localStorage.setItem("chat_" + chatKey, JSON.stringify(unique));
-}, [userId]);
-
-
-  /* 🔥 RECEIVE MESSAGE */
+  /*  LOAD LOCAL CHAT ONLY */
   useEffect(() => {
-  const handleReceive = (msg) => {
-  const isMyMessage =
-    (msg.sender === myId && msg.receiver === userId) ||
-    (msg.sender === userId && msg.receiver === myId);
+    const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
 
-  if (!isMyMessage) return;
+    //  Remove duplicates by _id
+    const unique = Array.from(
+      new Map(local.map(m => [m._id?.toString(), m])).values()
+    );
 
-  setMessages(prev => {
-    if (prev.find(m => m._id?.toString() === msg._id?.toString())) {
-      return prev;
-    }
+    setMessages(unique);
+    localStorage.setItem("chat_" + chatKey, JSON.stringify(unique));
+  }, [userId, chatKey]);
 
-    const updated = [...prev, msg];
-    localStorage.setItem("chat_" + chatKey, JSON.stringify(updated));
-    return updated;
-  });
 
-  if (msg.receiver === myId) {
-    socket.emit("message_stored_locally", msg._id);
-  }
-};
+  /*  RECEIVE MESSAGE */
+  useEffect(() => {
+    const handleReceive = (msg) => {
+      const isMyMessage =
+        (msg.sender === myId && msg.receiver === userId) ||
+        (msg.sender === userId && msg.receiver === myId);
+
+      if (!isMyMessage) return;
+
+      setMessages(prev => {
+        if (prev.find(m => m._id?.toString() === msg._id?.toString())) {
+          return prev;
+        }
+
+        const updated = [...prev, msg];
+        localStorage.setItem("chat_" + chatKey, JSON.stringify(updated));
+        return updated;
+      });
+
+      if (msg.receiver === myId) {
+        socket.emit("message_stored_locally", msg._id);
+      }
+    };
 
 
     const handleStatus = ({ messageId, status }) => {
@@ -87,23 +87,94 @@ const Chat = () => {
     };
   }, [userId, myId]);
 
-  
-  /* 📜 AUTO SCROLL */
+
+  /*  AUTO SCROLL */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUser]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!text.trim()) return;
-    socket.emit("send_message", { receiverId: userId, encryptedText: text });
-    socket.emit("stop_typing", userId);
-    setText("");
+
+    // 1. Get current user data safely
+    const userData = JSON.parse(localStorage.getItem("user"));
+    const myPubKey = userData?.publicKey;
+
+    // 2. Validate keys exist before calling crypto functions
+    if (!receiver?.publicKey) {
+      console.error("Receiver public key is missing");
+      return;
+    }
+
+    if (!myPubKey) {
+      console.error("Sender (your) public key is missing from local storage");
+      return;
+    }
+
+    try {
+
+      // Encrypt twice: once for them, once for me
+      const encReceiver = await encryptFor(text, receiver.publicKey);
+      const encSender = await encryptFor(text, myPubKey);
+
+      socket.emit("send_message", {
+        receiverId: userId,
+        encReceiver,
+        encSender
+      });
+
+      socket.emit("stop_typing", userId);
+      setText("");
+    } catch (err) {
+      console.error("Encryption failed", err);
+      alert("Could not encrypt message. Security keys may be invalid.");
+    }
   };
 
   const handleTyping = (e) => {
     setText(e.target.value);
     socket.emit("typing", userId);
   };
+
+  useEffect(() => {
+    const decryptAll = async () => {
+      const myPrivKey = localStorage.getItem("privateKey");
+      const userString = localStorage.getItem("user");
+      if (!userString || !myPrivKey) return;
+
+      const myId = JSON.parse(userString).id;
+
+      const processed = await Promise.all(messages.map(async (msg) => {
+        try {
+          // PRODUCTION FIX: Handle transition from old 'encryptedText' to new fields
+          let textToDecrypt = "";
+
+          if (msg.encryptedForSender || msg.encryptedForReceiver) {
+            textToDecrypt = (msg.sender === myId)
+              ? msg.encryptedForSender
+              : msg.encryptedForReceiver;
+          } else {
+            // Fallback for legacy messages if you want to keep them visible (they will look scrambled)
+            textToDecrypt = msg.encryptedText || "";
+          }
+
+          if (!textToDecrypt) return { ...msg, clearText: "[Empty Message]" };
+
+          const clearText = await decryptWith(textToDecrypt, myPrivKey);
+          return { ...msg, clearText };
+        } catch (err) {
+          return { ...msg, clearText: "[Decryption Failed]" };
+        }
+      }));
+      setDisplayMessages(processed);
+    };
+
+    if (messages.length > 0) {
+      decryptAll();
+    } else {
+      setDisplayMessages([]); // Clear if no messages
+    }
+  }, [messages]);
 
   return (
     <div className="chat-window">
@@ -137,11 +208,15 @@ const Chat = () => {
       </header>
 
       <div className="chat-messages">
-        {messages.map(msg => (
-          <div key={msg._id} className={`chat-bubble ${msg.sender === myId ? "me" : "other"}`}>
-            {msg.encryptedText}
-            {msg.sender === myId && msg.status === "delivered" && " ✓✓"}
-            {msg.sender === myId && msg.status === "seen" && " ✓✓"}
+        {displayMessages.map((msg) => (
+          <div key={msg._id || Math.random()} className={`chat-bubble ${msg.sender === myId ? "me" : "other"}`}>
+            <div className="message-text">
+              {msg.clearText || "..."}
+            </div>
+            <div className="message-status">
+              {msg.sender === myId && msg.status === "delivered" && " ✓✓"}
+              {msg.sender === myId && msg.status === "seen" && " ✓✓"}
+            </div>
           </div>
         ))}
         <div ref={bottomRef} />

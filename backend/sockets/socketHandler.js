@@ -34,28 +34,28 @@ module.exports = (io) => {
     }
 
     // send message
-    socket.on("send_message", async ({ receiverId, encryptedText }) => {
-  try {
-    // ✅ ALWAYS STORE
-    const message = await Message.create({
-      sender: userId,
-      receiver: receiverId,
-      encryptedText,
-      status: onlineUsers.has(receiverId) ? "delivered" : "sent",
+    socket.on("send_message", async ({ receiverId, encReceiver, encSender }) => {
+      try {
+        const message = await Message.create({
+          sender: userId,
+          receiver: receiverId,
+          encryptedForReceiver: encReceiver,
+          encryptedForSender: encSender,
+          status: onlineUsers.has(receiverId) ? "delivered" : "sent",
+        });
+
+        // ✅ SEND TO RECEIVER IF ONLINE
+        if (onlineUsers.has(receiverId)) {
+          io.to(receiverId).emit("receive_message", message);
+        }
+
+        // ✅ SEND BACK TO SENDER
+        io.to(userId).emit("receive_message", message);
+
+      } catch (err) {
+        console.error("Message send error:", err);
+      }
     });
-
-    // ✅ SEND TO RECEIVER IF ONLINE
-    if (onlineUsers.has(receiverId)) {
-      io.to(receiverId).emit("receive_message", message);
-    }
-
-    // ✅ SEND BACK TO SENDER
-    io.to(userId).emit("receive_message", message);
-
-  } catch (err) {
-    console.error("Message send error:", err);
-  }
-});
 
 
     socket.on("message_stored_locally", async (messageId) => {

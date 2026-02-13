@@ -25,7 +25,7 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      // 1️⃣ Generate RSA key pair
+      //  Generate RSA key pair
       const keyPair = await window.crypto.subtle.generateKey(
         {
           name: "RSA-OAEP",
@@ -37,7 +37,7 @@ const Signup = () => {
         ["encrypt", "decrypt"]
       );
 
-      // 2️⃣ Export public key (send to server)
+      // Export public key (send to server)
       const publicKeyBuffer = await window.crypto.subtle.exportKey(
         "spki",
         keyPair.publicKey
@@ -46,7 +46,7 @@ const Signup = () => {
         String.fromCharCode(...new Uint8Array(publicKeyBuffer))
       );
 
-      // 3️⃣ Export private key (store in browser)
+      //Export private key (store in browser)
       const privateKeyBuffer = await window.crypto.subtle.exportKey(
         "pkcs8",
         keyPair.privateKey
@@ -57,7 +57,7 @@ const Signup = () => {
 
       localStorage.setItem("privateKey", privateKeyBase64);
 
-      // 4️⃣ Send to backend using FormData
+      // Send to backend using FormData
       const formData = new FormData();
 
       formData.append("username", form.username);
