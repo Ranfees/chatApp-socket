@@ -11,10 +11,17 @@ const messageSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  // Version encrypted with Receiver's Public Key
-  encryptedForReceiver: { type: String, required: true },
-  // Version encrypted with Sender's Public Key (your history)
-  encryptedForSender: { type: String, required: true },
+
+  encryptedForReceiver: { 
+    type: String, 
+    required: true
+  },
+  
+  encryptedForSender: {
+    type: String, 
+    required: true 
+  },
+  
   status: {
     type: String,
     enum: ["sent", "delivered", "seen"],

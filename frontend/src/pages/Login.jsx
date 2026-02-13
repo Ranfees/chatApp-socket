@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { loginUser } from "../api/route";
-import { unlockPrivateKey } from "../utils/crypto"; // Import the unlock function
+import { unlockPrivateKey } from "../utils/crypto"; 
 import socket from "../socket/socket";
 import "../styles/auth.css";
 
@@ -19,7 +19,6 @@ const Login = () => {
     try {
       const { data } = await loginUser(form);
 
-      // 1. UNLOCK the private key using the password from the login form
       if (data.encryptedPrivateKey) {
         try {
           const decryptedPrivKey = await unlockPrivateKey(data.encryptedPrivateKey, form.password);
@@ -31,7 +30,6 @@ const Login = () => {
         }
       }
 
-      // 2. Standard Login Procedure
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify({
         id: data._id,

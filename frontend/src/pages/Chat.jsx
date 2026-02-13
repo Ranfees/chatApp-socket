@@ -25,11 +25,9 @@ const Chat = () => {
 
   const bottomRef = useRef();
 
-  /*  LOAD LOCAL CHAT ONLY */
   useEffect(() => {
     const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
 
-    //  Remove duplicates by _id
     const unique = Array.from(
       new Map(local.map(m => [m._id?.toString(), m])).values()
     );
@@ -42,45 +40,37 @@ const Chat = () => {
 
 useEffect(() => {
   const handleReceive = (msg) => {
-    // Determine the chat key for this incoming message
+
     const otherPartyId = msg.sender === myId ? msg.receiver : msg.sender;
     const targetChatKey = [myId, otherPartyId].sort().join("_");
 
-    // 1. Perspective check: Is this message for the chat I'm looking at?
     const isCurrentChat = (msg.sender === userId || msg.receiver === userId);
 
-    // 2. Update Local Storage for persistence
     const localData = JSON.parse(localStorage.getItem("chat_" + targetChatKey) || "[]");
     if (!localData.find(m => m._id === msg._id)) {
       const updatedLocal = [...localData, msg];
       localStorage.setItem("chat_" + targetChatKey, JSON.stringify(updatedLocal));
     }
 
-    // 3. CRITICAL: Update state if it's the current active chat
     if (isCurrentChat) {
       setMessages(prev => {
-        // Avoid duplicates if the socket fires twice
         if (prev.find(m => m._id === msg._id)) return prev;
         return [...prev, msg];
       });
     }
 
-    // 4. Send Ack if I am the receiver
     if (msg.receiver === myId) {
       socket.emit("message_stored_locally", msg._id);
     }
   };
 
   socket.on("receive_message", handleReceive);
-  // ... rest of your listeners
-  
+ 
   return () => {
     socket.off("receive_message", handleReceive);
-    // ... rest of your cleanups
   };
-}, [userId, myId]); // Ensure these are in the dependency array
+}, [userId, myId]);
 
-  /*  AUTO SCROLL */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUser]);
@@ -88,11 +78,9 @@ useEffect(() => {
   const sendMessage = async () => {
     if (!text.trim()) return;
 
-    // 1. Get current user data safely
     const userData = JSON.parse(localStorage.getItem("user"));
     const myPubKey = userData?.publicKey;
 
-    // 2. Validate keys exist before calling crypto functions
     if (!receiver?.publicKey) {
       console.error("Receiver public key is missing");
       return;
@@ -138,7 +126,7 @@ useEffect(() => {
 
       const processed = await Promise.all(messages.map(async (msg) => {
         try {
-          // PRODUCTION FIX: Handle transition from old 'encryptedText' to new fields
+       
           let textToDecrypt = "";
 
           if (msg.encryptedForSender || msg.encryptedForReceiver) {
@@ -146,7 +134,6 @@ useEffect(() => {
               ? msg.encryptedForSender
               : msg.encryptedForReceiver;
           } else {
-            // Fallback for legacy messages if you want to keep them visible (they will look scrambled)
             textToDecrypt = msg.encryptedText || "";
           }
 
@@ -164,7 +151,7 @@ useEffect(() => {
     if (messages.length > 0) {
       decryptAll();
     } else {
-      setDisplayMessages([]); // Clear if no messages
+      setDisplayMessages([]); 
     }
   }, [messages]);
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { registerUser } from "../api/route";
-import { protectPrivateKey } from "../utils/crypto"; // Import the new function
+import { protectPrivateKey } from "../utils/crypto"; 
 import "../styles/auth.css";
 import defaultAvatar from '../assets/avatar.jpg'
 
@@ -19,7 +19,7 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      // 1. Generate RSA key pair
+
       const keyPair = await window.crypto.subtle.generateKey(
         {
           name: "RSA-OAEP",
@@ -31,26 +31,22 @@ const Signup = () => {
         ["encrypt", "decrypt"]
       );
 
-      // 2. Export keys to Base64
       const pubBuf = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
       const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(pubBuf)));
 
       const privBuf = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
       const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privBuf)));
 
-      // 3. ENCRYPT the Private Key using the user's password
       const encryptedPrivKey = await protectPrivateKey(privateKeyBase64, form.password);
 
-      // 4. Save locally for immediate use
       localStorage.setItem("privateKey", privateKeyBase64);
 
-      // 5. Send to backend
       const formData = new FormData();
       formData.append("username", form.username);
       formData.append("email", form.email);
       formData.append("password", form.password);
       formData.append("publicKey", publicKeyBase64);
-      formData.append("encryptedPrivateKey", encryptedPrivKey); // Send the LOCKED key
+      formData.append("encryptedPrivateKey", encryptedPrivKey); 
 
       if (profilePic) formData.append("profilePic", profilePic);
 

@@ -41,13 +41,9 @@ module.exports = (io) => {
       status: onlineUsers.has(receiverId) ? "delivered" : "sent",
     });
 
-    // Send to Receiver (if online)
     if (onlineUsers.has(receiverId)) {
       io.to(receiverId).emit("receive_message", message);
     }
-
-    // Send back to Sender (This ensures the sender's UI updates)
-    // Use the room (userId) instead of just the socket
     io.to(userId).emit("receive_message", message);
 
   } catch (err) {
