@@ -32,24 +32,24 @@ module.exports = (io) => {
     }
 
     socket.on("send_message", async ({ receiverId, encReceiver, encSender }) => {
-  try {
-    const message = await Message.create({
-      sender: userId,
-      receiver: receiverId,
-      encryptedForReceiver: encReceiver,
-      encryptedForSender: encSender,
-      status: onlineUsers.has(receiverId) ? "delivered" : "sent",
+      try {
+        const message = await Message.create({
+          sender: userId,
+          receiver: receiverId,
+          encryptedForReceiver: encReceiver,
+          encryptedForSender: encSender,
+          status: onlineUsers.has(receiverId) ? "delivered" : "sent",
+        });
+
+        if (onlineUsers.has(receiverId)) {
+          io.to(receiverId).emit("receive_message", message);
+        }
+        io.to(userId).emit("receive_message", message);
+
+      } catch (err) {
+        console.error("Message send error:", err);
+      }
     });
-
-    if (onlineUsers.has(receiverId)) {
-      io.to(receiverId).emit("receive_message", message);
-    }
-    io.to(userId).emit("receive_message", message);
-
-  } catch (err) {
-    console.error("Message send error:", err);
-  }
-});
 
     socket.on("message_stored_locally", async (messageId) => {
       const msg = await Message.findById(messageId);
@@ -68,6 +68,19 @@ module.exports = (io) => {
 
     socket.on("message_seen", (id) => {
       io.emit("update_status", { messageId: id, status: "seen" });
+    });
+
+    socket.on("call-user", ({ to, offer, fromName, type }) => {
+      // 'to' is the receiver's userId
+      io.to(to).emit("incoming-call", { from: socket.userId, offer, fromName, type });
+    });
+
+    socket.on("answer-call", ({ to, answer }) => {
+      io.to(to).emit("call-accepted", { answer });
+    });
+
+    socket.on("end-call", ({ to }) => {
+      io.to(to).emit("call-ended");
     });
 
     socket.on("typing", (rid) => io.to(rid).emit("user_typing", userId));

@@ -2,20 +2,25 @@ import { useNavigate, useOutletContext, useParams } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import socket from "../socket/socket";
 import "../styles/chat.css";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Phone, Video } from "lucide-react"; // Added icons
 import { decryptWith, encryptFor } from "../utils/crypto";
+import VideoCall from "./VideoCall"; // Make sure to create this file
 
 const Chat = () => {
   const navigate = useNavigate();
   const { userId } = useParams();
   const { users, onlineUsers } = useOutletContext();
 
-  const myId = JSON.parse(localStorage.getItem("user"))?.id;
+  // Call States
+  const [isCalling, setIsCalling] = useState(false);
+  const [callType, setCallType] = useState(null);
+
+  const userString = localStorage.getItem("user");
+  const currentUser = JSON.parse(userString);
+  const myId = currentUser?.id;
 
   const chatKey = [myId, userId].sort().join("_");
-
   const receiver = users?.find((u) => u._id === userId);
-
   const isOnline = onlineUsers.includes(userId);
 
   const [text, setText] = useState("");
@@ -25,75 +30,98 @@ const Chat = () => {
 
   const bottomRef = useRef();
 
+  /* LOAD LOCAL CHAT */
   useEffect(() => {
     const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
-
     const unique = Array.from(
       new Map(local.map(m => [m._id?.toString(), m])).values()
     );
-
     setMessages(unique);
     localStorage.setItem("chat_" + chatKey, JSON.stringify(unique));
   }, [userId, chatKey]);
 
+  /* SOCKET LISTENERS (Messages & Calls) */
+  useEffect(() => {
+    const handleReceive = (msg) => {
+      const otherPartyId = msg.sender === myId ? msg.receiver : msg.sender;
+      const targetChatKey = [myId, otherPartyId].sort().join("_");
+      const isCurrentChat = (msg.sender === userId || msg.receiver === userId);
 
+      const localData = JSON.parse(localStorage.getItem("chat_" + targetChatKey) || "[]");
+      if (!localData.find(m => m._id === msg._id)) {
+        const updatedLocal = [...localData, msg];
+        localStorage.setItem("chat_" + targetChatKey, JSON.stringify(updatedLocal));
+      }
 
-useEffect(() => {
-  const handleReceive = (msg) => {
+      if (isCurrentChat) {
+        setMessages(prev => {
+          if (prev.find(m => m._id === msg._id)) return prev;
+          return [...prev, msg];
+        });
+      }
 
-    const otherPartyId = msg.sender === myId ? msg.receiver : msg.sender;
-    const targetChatKey = [myId, otherPartyId].sort().join("_");
+      if (msg.receiver === myId) {
+        socket.emit("message_stored_locally", msg._id);
+      }
+    };
 
-    const isCurrentChat = (msg.sender === userId || msg.receiver === userId);
+    const handleIncomingCall = ({ from, type, fromName }) => {
+      // Only respond if the call is from the person we are currently viewing
+      // or if we want to allow calls from anyone at any time.
+      const accept = window.confirm(`Incoming ${type} call from ${fromName}. Accept?`);
+      if (accept) {
+        setCallType(type);
+        setIsCalling(true);
+      } else {
+        socket.emit("end-call", { to: from });
+      }
+    };
 
-    const localData = JSON.parse(localStorage.getItem("chat_" + targetChatKey) || "[]");
-    if (!localData.find(m => m._id === msg._id)) {
-      const updatedLocal = [...localData, msg];
-      localStorage.setItem("chat_" + targetChatKey, JSON.stringify(updatedLocal));
-    }
+    socket.on("receive_message", handleReceive);
+    socket.on("incoming-call", handleIncomingCall);
+    socket.on("call-ended", () => {
+      setIsCalling(false);
+      setCallType(null);
+    });
 
-    if (isCurrentChat) {
-      setMessages(prev => {
-        if (prev.find(m => m._id === msg._id)) return prev;
-        return [...prev, msg];
-      });
-    }
+    return () => {
+      socket.off("receive_message", handleReceive);
+      socket.off("incoming-call", handleIncomingCall);
+      socket.off("call-ended");
+    };
+  }, [userId, myId]);
 
-    if (msg.receiver === myId) {
-      socket.emit("message_stored_locally", msg._id);
-    }
-  };
-
-  socket.on("receive_message", handleReceive);
- 
-  return () => {
-    socket.off("receive_message", handleReceive);
-  };
-}, [userId, myId]);
-
+  /* AUTO SCROLL */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUser]);
 
-  const sendMessage = async () => {
-    if (!text.trim()) return;
-
-    const userData = JSON.parse(localStorage.getItem("user"));
-    const myPubKey = userData?.publicKey;
-
-    if (!receiver?.publicKey) {
-      console.error("Receiver public key is missing");
+  /* CALL FUNCTIONS */
+  const startCall = (type) => {
+    if (!isOnline) {
+      alert("User is offline and cannot be called.");
       return;
     }
+    setCallType(type);
+    setIsCalling(true);
+    socket.emit("call-user", { 
+      to: userId, 
+      type, 
+      fromName: currentUser?.username || "Someone" 
+    });
+  };
 
-    if (!myPubKey) {
-      console.error("Sender (your) public key is missing from local storage");
+  /* MESSAGE FUNCTIONS */
+  const sendMessage = async () => {
+    if (!text.trim()) return;
+    const myPubKey = currentUser?.publicKey;
+
+    if (!receiver?.publicKey || !myPubKey) {
+      alert("Security keys missing. Cannot send encrypted message.");
       return;
     }
 
     try {
-
-      // Encrypt twice: once for them, once for me
       const encReceiver = await encryptFor(text, receiver.publicKey);
       const encSender = await encryptFor(text, myPubKey);
 
@@ -107,7 +135,6 @@ useEffect(() => {
       setText("");
     } catch (err) {
       console.error("Encryption failed", err);
-      alert("Could not encrypt message. Security keys may be invalid.");
     }
   };
 
@@ -116,29 +143,19 @@ useEffect(() => {
     socket.emit("typing", userId);
   };
 
+  /* DECRYPTION LOGIC */
   useEffect(() => {
     const decryptAll = async () => {
       const myPrivKey = localStorage.getItem("privateKey");
-      const userString = localStorage.getItem("user");
       if (!userString || !myPrivKey) return;
-
-      const myId = JSON.parse(userString).id;
 
       const processed = await Promise.all(messages.map(async (msg) => {
         try {
-       
-          let textToDecrypt = "";
+          let textToDecrypt = (msg.sender === myId)
+            ? (msg.encryptedForSender || msg.encryptedText)
+            : (msg.encryptedForReceiver || msg.encryptedText);
 
-          if (msg.encryptedForSender || msg.encryptedForReceiver) {
-            textToDecrypt = (msg.sender === myId)
-              ? msg.encryptedForSender
-              : msg.encryptedForReceiver;
-          } else {
-            textToDecrypt = msg.encryptedText || "";
-          }
-
-          if (!textToDecrypt) return { ...msg, clearText: "[Empty Message]" };
-
+          if (!textToDecrypt) return { ...msg, clearText: "[Empty]" };
           const clearText = await decryptWith(textToDecrypt, myPrivKey);
           return { ...msg, clearText };
         } catch (err) {
@@ -148,54 +165,47 @@ useEffect(() => {
       setDisplayMessages(processed);
     };
 
-    if (messages.length > 0) {
-      decryptAll();
-    } else {
-      setDisplayMessages([]); 
-    }
+    if (messages.length > 0) decryptAll();
+    else setDisplayMessages([]);
   }, [messages]);
 
   return (
     <div className="chat-window">
       <header className="chat-header">
-        <button className="mobile-back-btn" onClick={() => navigate("/")}>
-          <ArrowLeft />
-        </button>
+        <div className="header-left">
+          <button className="mobile-back-btn" onClick={() => navigate("/")}>
+            <ArrowLeft />
+          </button>
+          
+          <div className="chat-avatar">
+            {receiver?.profilePic ? (
+              <img src={receiver.profilePic} alt="" className="chat-avatar-img" />
+            ) : (
+              <span className="chat-avatar-letter">{receiver?.username?.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
 
-        <div className="chat-avatar">
-          {receiver?.profilePic ? (
-            <img
-              src={receiver.profilePic}
-              alt={receiver.username}
-              className="chat-avatar-img"
-            />
-          ) : (
-            <span className="chat-avatar-letter">
-              {receiver?.username?.charAt(0).toUpperCase()}
-            </span>
-          )}
+          <div className="header-info">
+            <h4>{receiver?.username ? receiver.username.charAt(0).toUpperCase() + receiver.username.slice(1) : "Chat"}</h4>
+            <span className="status-text">{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
+          </div>
         </div>
 
-
-        <h4>
-          {receiver
-            ? receiver.username.charAt(0).toUpperCase() + receiver.username.slice(1)
-            : "Chat"}
-        </h4>
-
-        <span>{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
+        <div className="call-actions">
+          <button className="call-btn" onClick={() => startCall('audio')} title="Voice Call">
+            <Phone size={20} />
+          </button>
+          <button className="call-btn" onClick={() => startCall('video')} title="Video Call">
+            <Video size={20} />
+          </button>
+        </div>
       </header>
 
       <div className="chat-messages">
         {displayMessages.map((msg) => (
           <div key={msg._id || Math.random()} className={`chat-bubble ${msg.sender === myId ? "me" : "other"}`}>
-            <div className="message-text">
-              {msg.clearText || "..."}
-            </div>
-            <div className="message-status">
-              {msg.sender === myId && msg.status === "delivered" && " ✓✓"}
-              {msg.sender === myId && msg.status === "seen" && " ✓✓"}
-            </div>
+            <div className="message-text">{msg.clearText || "..."}</div>
+            {msg.sender === myId && <div className="message-status">{msg.status === "seen" || msg.status === "delivered" ? " ✓✓" : " ✓"}</div>}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -205,6 +215,20 @@ useEffect(() => {
         <input value={text} onChange={handleTyping} placeholder="Type a message…" />
         <button onClick={sendMessage}>➤</button>
       </footer>
+
+      {/* CALL OVERLAY */}
+      {isCalling && (
+        <VideoCall 
+          myId={myId} 
+          remoteUserId={userId} 
+          type={callType} 
+          onEnd={() => {
+            setIsCalling(false);
+            setCallType(null);
+            socket.emit("end-call", { to: userId });
+          }} 
+        />
+      )}
     </div>
   );
 };
