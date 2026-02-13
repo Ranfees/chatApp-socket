@@ -5,11 +5,19 @@
   --text-dim: #9f948d;
   --glass-border: rgba(255, 255, 255, 0.08);
 }
+html, body, #root {
+  height: 100%;
+}
+
 
 *{
  box-sizing: border-box;
  margin: 0;
  padding: 0;
+}
+body{
+  padding: 0;
+  margin: 0;
 }
 
 .app-container {
@@ -17,17 +25,17 @@
   width: 100vw;
   background: radial-gradient(circle at top right, #2d2019, #0f0f0f);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  margin: 0;
+   align-items: stretch;
+  justify-content: flex-start;
 }
 
 .app-shell {
   display: flex;
+  flex: 1;
   width: 100%;
   max-width: 1600px;
   height: 100%;
+  min-height: 0;
   background: var(--sidebar-bg);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
@@ -35,7 +43,6 @@
   backdrop-filter: blur(20px);
 }
 
-/* LEFT ICON RAIL */
 .nav-rail {
   width: 64px;
   background: rgba(0, 0, 0, 0.2);
@@ -114,8 +121,13 @@
 
 .main-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   background: rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
+
 .chat-avatar {
   position: relative;
 }
@@ -131,22 +143,16 @@
   border: 2px solid white;
 }
 
+.desktop-hidden {
+  display: none !important;
+}
 
-
-/* ... existing CSS ... */
-
-/* MOBILE RESPONSIVENESS */
 @media (max-width: 768px) {
   .app-shell {
-    flex-direction: row; /* Keep horizontal but children will swap */
+    flex-direction: row;
     border-radius: 0;
     border: none;
   }
-
-  /* Hide the Nav Rail on mobile to save space (optional) */
-  /* .nav-rail {
-    display: none; 
-  } */
 
   .sidebar {
     width: 100%;
@@ -155,23 +161,16 @@
 
   .main-content {
     width: 100%;
-    position: absolute; /* Take over the screen when active */
-    top: 0;
-    left: 0;
+    position: relative; 
     height: 100%;
     background: var(--bg-main);
     z-index: 10;
   }
 
-  /* Helper class to toggle visibility */
   .mobile-hidden {
     display: none !important;
   }
 }
-
-/* ===============================
-   NAV PROFILE
-================================ */
 
 .nav-bottom {
   display: flex;
@@ -257,11 +256,33 @@
 
 .online-dot {
   position: absolute;
-  bottom: -2px;   /* move outside */
-  right: -2px;    /* move outside */
-  width: 14px;    /* slightly bigger */
+  bottom: -2px; 
+  right: -2px;
+  width: 14px;
   height: 14px;
   background-color: #22c55e;
   border-radius: 50%;
-  border: 3px solid #1a1411; /* match sidebar background */
+  border: 3px solid #1a1411;
+}
+
+.empty-chat {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at top right, #2d2019, #0f0f0f);
+  color: var(--text-dim);
+}
+
+.empty-chat-content {
+  text-align: center;
+}
+
+.empty-chat-content h2 {
+  color: #e9edef;
+  margin-bottom: 10px;
+}
+
+.empty-chat-content p {
+  font-size: 14px;
 }

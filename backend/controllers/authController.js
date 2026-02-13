@@ -46,6 +46,7 @@ exports.registerUser = async (req, res) => {
       email: user.email,
       profilePic: user.profilePic,
       token: generateToken(user._id),
+      createdAt: user.createdAt,
     });
 
   } catch (err) {
@@ -74,6 +75,7 @@ exports.loginUser = async (req, res) => {
       publicKey: user.publicKey, // useful for frontend encryption
       profilePic: user.profilePic,
       token: generateToken(user._id),
+      createdAt: user.createdAt,
     });
 
   } catch (err) {
