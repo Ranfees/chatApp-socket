@@ -33,10 +33,11 @@ const Login = () => {
           username: data.username,
           email: data.email,
           profilePic: data.profilePic,
+          createdAt: data.createdAt,
         })
       );
 
-      // 🔥 CONNECT SOCKET AFTER LOGIN
+      // CONNECT SOCKET AFTER LOGIN
       socket.auth = {
         token: data.token,
       };

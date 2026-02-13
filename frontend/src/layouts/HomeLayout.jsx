@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useParams } from "react-router";
+import { Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import socket from "../socket/socket";
@@ -7,6 +7,8 @@ import { LogOut } from "lucide-react";
 import defaultAvatar from '../assets/avatar.jpg'
 
 const HomeLayout = () => {
+  const location = useLocation();
+  const isProfile = location.pathname === "/profile";
   const navigate = useNavigate();
   const { userId } = useParams();
   const [users, setUsers] = useState([]);
@@ -18,7 +20,7 @@ const HomeLayout = () => {
     api.get("/api/users").then((res) => setUsers(res.data));
   }, []);
 
-  /* 🟢 ONLINE USERS LISTENER */
+  /* ONLINE USERS LISTENER */
   useEffect(() => {
     const handleOnlineUsers = (users) => {
       setOnlineUsers(users);
@@ -77,17 +79,14 @@ const HomeLayout = () => {
     <div className="app-container">
       <div className="app-shell">
 
-        {/* NAV RAIL */}
         <nav className="nav-rail">
           <div className="nav-top">
-            <div className="nav-icon active">💬</div>
-            {/* <div className="nav-icon">📞</div>
-            <div className="nav-icon">⭕</div> */}
+            <div className="nav-icon active" onClick={() => navigate("/")}>💬</div>
+            {/* <div className="nav-icon">📞</div>*/}
           </div>
           <div className="nav-bottom">
 
-            {/* Profile Avatar */}
-            <div className="nav-profile">
+            <div className="nav-profile" onClick={() => navigate("/profile")}>
               <img
                 src={
                   currentUser?.profilePic
@@ -99,17 +98,13 @@ const HomeLayout = () => {
               />
             </div>
 
-            {/* Logout */}
             <div className="nav-avatar-small logout-btn" onClick={handleLogout}>
               <LogOut size={18} />
             </div>
-
           </div>
-
         </nav>
 
-        {/* CHAT LIST */}
-        <aside className={`sidebar ${userId ? "mobile-hidden" : ""}`}>
+        <aside className={`sidebar ${(userId || isProfile) ? "mobile-hidden" : ""} ${isProfile ? "desktop-hidden" : ""}`}>
           <header className="sidebar-header">
             <h1>Chats</h1>
           </header>
@@ -121,7 +116,6 @@ const HomeLayout = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-
           </div>
 
           <div className="chat-list">
@@ -157,12 +151,7 @@ const HomeLayout = () => {
                       <span className="chat-time">
                         {isOnline ? "Online" : formatLastSeen(user.lastSeen)}
                       </span>
-
                     </div>
-
-                    {/* <div className="chat-preview">
-                      {isOnline ? "🟢 Online" : "⚫ Offline"}
-                    </div> */}
                   </div>
                 </div>
               );
@@ -170,8 +159,7 @@ const HomeLayout = () => {
           </div>
         </aside>
 
-        {/* MAIN CHAT */}
-        <main className={`main-content ${!userId ? "mobile-hidden" : ""}`}>
+       <main className={`main-content ${(!userId && !isProfile) ? "mobile-hidden" : ""}`}>
           <Outlet context={{ onlineUsers, users }} />
         </main>
       </div>

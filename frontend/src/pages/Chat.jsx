@@ -24,11 +24,11 @@ const Chat = () => {
 
   const bottomRef = useRef();
 
-  /* ⚡ LOAD LOCAL CHAT ONLY */
+  /*  LOAD LOCAL CHAT ONLY */
  useEffect(() => {
   const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
 
-  // 🔥 Remove duplicates by _id
+  //  Remove duplicates by _id
   const unique = Array.from(
     new Map(local.map(m => [m._id?.toString(), m])).values()
   );
@@ -38,7 +38,7 @@ const Chat = () => {
 }, [userId]);
 
 
-  /* 🔥 RECEIVE MESSAGE */
+  /*  RECEIVE MESSAGE */
   useEffect(() => {
   const handleReceive = (msg) => {
   const isMyMessage =
@@ -87,7 +87,7 @@ const Chat = () => {
   }, [userId, myId]);
 
   
-  /* 📜 AUTO SCROLL */
+  /*  AUTO SCROLL */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUser]);
