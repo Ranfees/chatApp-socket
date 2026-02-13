@@ -39,61 +39,46 @@ const Chat = () => {
   }, [userId, chatKey]);
 
 
-  /*  RECEIVE MESSAGE */
-  useEffect(() => {
-   const handleReceive = (msg) => {
-  // 1. Determine which chat this message belongs to
-  // If I sent it, use receiver. If I received it, use sender.
-  const otherPartyId = msg.sender === myId ? msg.receiver : msg.sender;
-  const targetChatKey = [myId, otherPartyId].sort().join("_");
 
-  // 2. ALWAYS save to localStorage so the data isn't lost
-  const localData = JSON.parse(localStorage.getItem("chat_" + targetChatKey) || "[]");
-  
-  // Prevent duplicates
-  if (!localData.find(m => m._id === msg._id)) {
-    const updatedLocal = [...localData, msg];
-    localStorage.setItem("chat_" + targetChatKey, JSON.stringify(updatedLocal));
-  }
+useEffect(() => {
+  const handleReceive = (msg) => {
+    // Determine the chat key for this incoming message
+    const otherPartyId = msg.sender === myId ? msg.receiver : msg.sender;
+    const targetChatKey = [myId, otherPartyId].sort().join("_");
 
-  // 3. ONLY update the UI state if I am currently chatting with this person
-  if (otherPartyId === userId) {
-    setMessages(prev => {
-      if (prev.find(m => m._id === msg._id)) return prev;
-      return [...prev, msg];
-    });
-  }
+    // 1. Perspective check: Is this message for the chat I'm looking at?
+    const isCurrentChat = (msg.sender === userId || msg.receiver === userId);
 
-  // 4. Acknowledge receipt to backend
-  if (msg.receiver === myId) {
-    socket.emit("message_stored_locally", msg._id);
-  }
-};
+    // 2. Update Local Storage for persistence
+    const localData = JSON.parse(localStorage.getItem("chat_" + targetChatKey) || "[]");
+    if (!localData.find(m => m._id === msg._id)) {
+      const updatedLocal = [...localData, msg];
+      localStorage.setItem("chat_" + targetChatKey, JSON.stringify(updatedLocal));
+    }
 
-
-    const handleStatus = ({ messageId, status }) => {
+    // 3. CRITICAL: Update state if it's the current active chat
+    if (isCurrentChat) {
       setMessages(prev => {
-        const updated = prev.map(m =>
-          m._id === messageId ? { ...m, status } : m
-        );
-        localStorage.setItem("chat_" + chatKey, JSON.stringify(updated));
-        return updated;
+        // Avoid duplicates if the socket fires twice
+        if (prev.find(m => m._id === msg._id)) return prev;
+        return [...prev, msg];
       });
-    };
+    }
 
-    socket.on("receive_message", handleReceive);
-    socket.on("update_status", handleStatus);
-    socket.on("user_typing", (uid) => uid === userId && setTypingUser(true));
-    socket.on("user_stop_typing", (uid) => uid === userId && setTypingUser(false));
+    // 4. Send Ack if I am the receiver
+    if (msg.receiver === myId) {
+      socket.emit("message_stored_locally", msg._id);
+    }
+  };
 
-    return () => {
-      socket.off("receive_message", handleReceive);
-      socket.off("update_status", handleStatus);
-      socket.off("user_typing");
-      socket.off("user_stop_typing");
-    };
-  }, [userId, myId]);
-
+  socket.on("receive_message", handleReceive);
+  // ... rest of your listeners
+  
+  return () => {
+    socket.off("receive_message", handleReceive);
+    // ... rest of your cleanups
+  };
+}, [userId, myId]); // Ensure these are in the dependency array
 
   /*  AUTO SCROLL */
   useEffect(() => {
