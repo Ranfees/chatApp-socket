@@ -32,26 +32,28 @@ module.exports = (io) => {
     }
 
     socket.on("send_message", async ({ receiverId, encReceiver, encSender }) => {
-      try {
-        const message = await Message.create({
-          sender: userId,
-          receiver: receiverId,
-          encryptedForReceiver: encReceiver,
-          encryptedForSender: encSender,
-          status: onlineUsers.has(receiverId) ? "delivered" : "sent",
-        });
-
-        if (onlineUsers.has(receiverId)) {
-          io.to(receiverId).emit("receive_message", message);
-        }
-
-        io.to(userId).emit("receive_message", message);
-
-      } catch (err) {
-        console.error("Message send error:", err);
-      }
+  try {
+    const message = await Message.create({
+      sender: userId,
+      receiver: receiverId,
+      encryptedForReceiver: encReceiver,
+      encryptedForSender: encSender,
+      status: onlineUsers.has(receiverId) ? "delivered" : "sent",
     });
 
+    // Send to Receiver (if online)
+    if (onlineUsers.has(receiverId)) {
+      io.to(receiverId).emit("receive_message", message);
+    }
+
+    // Send back to Sender (This ensures the sender's UI updates)
+    // Use the room (userId) instead of just the socket
+    io.to(userId).emit("receive_message", message);
+
+  } catch (err) {
+    console.error("Message send error:", err);
+  }
+});
 
     socket.on("message_stored_locally", async (messageId) => {
       const msg = await Message.findById(messageId);
