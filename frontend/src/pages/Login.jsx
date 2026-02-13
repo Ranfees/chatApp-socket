@@ -33,7 +33,6 @@ const Login = () => {
           username: data.username,
           email: data.email,
           profilePic: data.profilePic,
-           publicKey: data.publicKey 
         })
       );
 
