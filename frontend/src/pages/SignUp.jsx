@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { registerUser } from "../api/route";
 import "../styles/auth.css";
-import defaultAvatar from '../assets/avatar.jpg'
+import defaultAvatar from "../assets/avatar.jpg";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -20,12 +20,22 @@ const Signup = () => {
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
+  // 🔐 Safe ArrayBuffer → Base64
+  const bufferToBase64 = (buffer) => {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    bytes.forEach((b) => (binary += String.fromCharCode(b)));
+    return window.btoa(binary);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // 1️⃣ Generate RSA key pair
+      // ==========================
+      // 1️⃣ Generate RSA Key Pair
+      // ==========================
       const keyPair = await window.crypto.subtle.generateKey(
         {
           name: "RSA-OAEP",
@@ -37,29 +47,33 @@ const Signup = () => {
         ["encrypt", "decrypt"]
       );
 
-      // 2️⃣ Export public key (send to server)
+      // ==========================
+      // 2️⃣ Export Public Key
+      // ==========================
       const publicKeyBuffer = await window.crypto.subtle.exportKey(
         "spki",
         keyPair.publicKey
       );
-      const publicKeyBase64 = btoa(
-        String.fromCharCode(...new Uint8Array(publicKeyBuffer))
-      );
 
-      // 3️⃣ Export private key (store in browser)
+      const publicKeyBase64 = bufferToBase64(publicKeyBuffer);
+
+      // ==========================
+      // 3️⃣ Export Private Key
+      // ==========================
       const privateKeyBuffer = await window.crypto.subtle.exportKey(
         "pkcs8",
         keyPair.privateKey
       );
-      const privateKeyBase64 = btoa(
-        String.fromCharCode(...new Uint8Array(privateKeyBuffer))
-      );
 
+      const privateKeyBase64 = bufferToBase64(privateKeyBuffer);
+
+      // ⚠️ Store private key locally ONLY
       localStorage.setItem("privateKey", privateKeyBase64);
 
-      // 4️⃣ Send to backend using FormData
+      // ==========================
+      // 4️⃣ Send Registration Data
+      // ==========================
       const formData = new FormData();
-
       formData.append("username", form.username);
       formData.append("email", form.email);
       formData.append("password", form.password);
@@ -71,31 +85,37 @@ const Signup = () => {
 
       const { data } = await registerUser(formData);
 
+      // Store token only (private key already stored)
       localStorage.setItem("token", data.token);
+
       navigate("/login");
 
     } catch (err) {
+      console.error("Signup error:", err);
       alert(err.response?.data?.message || "Signup failed");
     } finally {
       setLoading(false);
     }
   };
 
-
   return (
     <div className="auth-page">
       <div className="auth-glow" />
 
-      <form className="auth-card" method="post" onSubmit={handleSubmit} encType="multipart/form-data">
+      <form
+        className="auth-card"
+        method="post"
+        onSubmit={handleSubmit}
+        encType="multipart/form-data"
+      >
         <h2>Create account</h2>
         <p>Secure end-to-end encrypted chat</p>
 
+        {/* Avatar Upload */}
         <div className="avatar-upload">
           <label htmlFor="profilePicInput" className="avatar-label">
             <img
-              src={
-                preview || defaultAvatar
-              }
+              src={preview || defaultAvatar}
               alt="Profile"
               className="avatar-preview"
             />
@@ -116,7 +136,6 @@ const Signup = () => {
             }}
           />
         </div>
-
 
         <input
           className="auth-input"
@@ -148,7 +167,7 @@ const Signup = () => {
         />
 
         <button className="auth-btn" disabled={loading}>
-          {loading ? "Creating..." : "Create account"}
+          {loading ? "Generating keys..." : "Create account"}
         </button>
 
         <div className="auth-footer">
