@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router";
-import Home from "./pages/Home";
+// import Home from "./pages/Home";
 import Chat from "./pages/Chat";
 import Login from "./pages/Login";
 import Signup from "./pages/SignUp";
@@ -22,7 +22,7 @@ function App() {
         <Route path="chat/:userId" element={<Chat />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/home" />} />
+      <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
 }
