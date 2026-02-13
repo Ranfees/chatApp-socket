@@ -1,7 +1,7 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const fileUploadToCloudinary = require('../utils/fileUpload')
+const fileUploadToCloudinary = require('../utils/fileUpload');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -11,33 +11,31 @@ const generateToken = (id) => {
 
 exports.registerUser = async (req, res) => {
   try {
-    const { username, email, password, publicKey } = req.body;
+    // 1. ADD encryptedPrivateKey to the destructured body
+    const { username, email, password, publicKey, encryptedPrivateKey } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    //upload image
     let profilePicUrl = "";
-
     if (req.files && req.files.profilePic) {
-      const uploadedImage = await fileUploadToCloudinary(
-        req.files.profilePic
-      );
+      const uploadedImage = await fileUploadToCloudinary(req.files.profilePic);
       profilePicUrl = uploadedImage.url;
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // 2. SAVE the encryptedPrivateKey to the database
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
-      publicKey, // store user's public encryption key
-      profilePic:profilePicUrl
+      publicKey, 
+      encryptedPrivateKey, // Store the locked key from frontend
+      profilePic: profilePicUrl
     });
 
     res.status(201).json({
@@ -68,11 +66,13 @@ exports.loginUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    // 3. SEND the encryptedPrivateKey back to the frontend on login
     res.json({
       _id: user._id,
       username: user.username,
       email: user.email,
-      publicKey: user.publicKey, // useful for frontend encryption
+      publicKey: user.publicKey,
+      encryptedPrivateKey: user.encryptedPrivateKey, // Frontend uses this to unlock RSA
       profilePic: user.profilePic,
       token: generateToken(user._id),
       createdAt: user.createdAt,

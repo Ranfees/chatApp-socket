@@ -1,11 +1,10 @@
+/* --- HELPER UTILITIES --- */
+
 const base64ToBuffer = (base64) => {
-  // Ensure we have a string and remove any whitespace/newlines
   if (!base64 || typeof base64 !== 'string') {
     throw new Error("Invalid Base64 string provided to base64ToBuffer");
   }
-  
   const cleanBase64 = base64.trim().replace(/\s/g, '');
-  
   try {
     const binary = window.atob(cleanBase64);
     const bytes = new Uint8Array(binary.length);
@@ -23,7 +22,73 @@ const bufferToBase64 = (buffer) => {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)));
 };
 
-// Encrypt for a specific Public Key
+/* --- PASSWORD-BASED KEY DERIVATION (PBKDF2) --- */
+
+// Creates a temporary AES key from the user's login password
+const deriveKeyFromPassword = async (password) => {
+  const encoder = new TextEncoder();
+  const baseKey = await window.crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+
+  return window.crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: encoder.encode("chat-app-consistent-salt"), // Do not change this salt after users sign up
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"]
+  );
+};
+
+/* --- PRIVATE KEY PROTECTION --- */
+
+// Encrypts the Private Key using the password so it can be stored in the DB
+export const protectPrivateKey = async (privateKeyBase64, password) => {
+  const aesKey = await deriveKeyFromPassword(password);
+  const iv = window.crypto.getRandomValues(new Uint8Array(12)); // Initialization Vector
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    aesKey,
+    new TextEncoder().encode(privateKeyBase64)
+  );
+  
+  // Combine IV and Ciphertext into one string for easy storage
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return bufferToBase64(combined.buffer);
+};
+
+// Decrypts the Private Key using the password after the user logs in
+export const unlockPrivateKey = async (protectedKeyBase64, password) => {
+  try {
+    const combined = new Uint8Array(base64ToBuffer(protectedKeyBase64));
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+    const aesKey = await deriveKeyFromPassword(password);
+    
+    const decrypted = await window.crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      aesKey,
+      ciphertext
+    );
+    return new TextDecoder().decode(decrypted);
+  } catch (err) {
+    throw new Error("Password incorrect or key corrupted");
+  }
+};
+
+/* --- CORE CHAT ENCRYPTION (RSA-OAEP) --- */
+
 export const encryptFor = async (text, publicKeyBase64) => {
   const publicKey = await window.crypto.subtle.importKey(
     "spki",
@@ -40,7 +105,6 @@ export const encryptFor = async (text, publicKeyBase64) => {
   return bufferToBase64(encrypted);
 };
 
-// Decrypt using your Private Key
 export const decryptWith = async (encryptedBase64, privateKeyBase64) => {
   try {
     const privateKey = await window.crypto.subtle.importKey(
@@ -57,6 +121,7 @@ export const decryptWith = async (encryptedBase64, privateKeyBase64) => {
     );
     return new TextDecoder().decode(decrypted);
   } catch (err) {
+    console.error("RSA Decryption Error:", err);
     return "[Decryption Error]";
   }
 };
