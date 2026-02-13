@@ -20,7 +20,6 @@ const HomeLayout = () => {
     api.get("/api/users").then((res) => setUsers(res.data));
   }, []);
 
-  /* ONLINE USERS LISTENER */
   useEffect(() => {
     const handleOnlineUsers = (users) => {
       setOnlineUsers(users);
@@ -34,13 +33,12 @@ const HomeLayout = () => {
   }, []);
 
   const formatLastSeen = (date) => {
-    // 1. Check if date is missing or null
+
     if (!date) return "Offline";
 
     const now = new Date();
     const last = new Date(date);
 
-    // 2. Check if the date is invalid (e.g., "0" or invalid string)
     if (isNaN(last.getTime()) || last.getTime() === 0) {
       return "Offline";
     }
@@ -82,7 +80,6 @@ const HomeLayout = () => {
         <nav className="nav-rail">
           <div className="nav-top">
             <div className="nav-icon active" onClick={() => navigate("/")}>💬</div>
-            {/* <div className="nav-icon">📞</div>*/}
           </div>
           <div className="nav-bottom">
 

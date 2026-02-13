@@ -24,7 +24,6 @@ const userSchema = new mongoose.Schema({
     required: true,
   },
 
-  // NEW: Stores the RSA Private Key encrypted by the user's password
   encryptedPrivateKey: {
     type: String,
     required: true,

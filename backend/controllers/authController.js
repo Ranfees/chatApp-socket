@@ -11,7 +11,7 @@ const generateToken = (id) => {
 
 exports.registerUser = async (req, res) => {
   try {
-    // 1. ADD encryptedPrivateKey to the destructured body
+
     const { username, email, password, publicKey, encryptedPrivateKey } = req.body;
 
     const userExists = await User.findOne({ email });
@@ -28,13 +28,12 @@ exports.registerUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 2. SAVE the encryptedPrivateKey to the database
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
       publicKey, 
-      encryptedPrivateKey, // Store the locked key from frontend
+      encryptedPrivateKey, 
       profilePic: profilePicUrl
     });
 
@@ -66,13 +65,13 @@ exports.loginUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    // 3. SEND the encryptedPrivateKey back to the frontend on login
+  
     res.json({
       _id: user._id,
       username: user.username,
       email: user.email,
       publicKey: user.publicKey,
-      encryptedPrivateKey: user.encryptedPrivateKey, // Frontend uses this to unlock RSA
+      encryptedPrivateKey: user.encryptedPrivateKey, 
       profilePic: user.profilePic,
       token: generateToken(user._id),
       createdAt: user.createdAt,
