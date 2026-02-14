@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Peer from "peerjs";
 import socket from "../socket/socket";
 
-const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
+const VideoCall = ({ myId, remoteUserId, type, role, onEnd }) => {
   const [remoteStream, setRemoteStream] = useState(null);
 
   const myVideoRef = useRef(null);
@@ -12,15 +12,36 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
   const streamRef = useRef(null);
   const callRef = useRef(null);
 
-  const callProcessed = useRef(false); // prevents double call
-
   useEffect(() => {
     let isMounted = true;
 
     // =============================
-    // 1️⃣ Create Peer Connection
+    // CLEANUP FUNCTION
     // =============================
-    const peer = new Peer(myId, {
+    const cleanupCall = () => {
+      console.log("Cleaning up call");
+
+      if (callRef.current) {
+        callRef.current.close();
+        callRef.current = null;
+      }
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+
+      if (peerRef.current && !peerRef.current.destroyed) {
+        peerRef.current.destroy();
+      }
+
+      onEnd();
+    };
+
+    // =============================
+    // 1️⃣ Create Peer (NO ID COLLISION)
+    // =============================
+    const peer = new Peer(undefined, {
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
@@ -54,12 +75,11 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
         }
 
         // =============================
-        // 3️⃣ ANSWER INCOMING CALL
+        // 3️⃣ ANSWER INCOMING CALL (Receiver Only)
         // =============================
         peer.on("call", (incomingCall) => {
           console.log("Incoming call received");
 
-          callProcessed.current = true;
           callRef.current = incomingCall;
 
           incomingCall.answer(stream);
@@ -79,20 +99,20 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
         });
 
         // =============================
-        // 4️⃣ MAKE OUTGOING CALL
+        // 4️⃣ MAKE OUTGOING CALL (Caller ONLY)
         // =============================
-        peer.on("open", () => {
-          console.log("Peer connected:", myId);
+        peer.on("open", (peerId) => {
+          console.log("Peer ready:", peerId, "Role:", role);
 
-          // wait slightly so receiver peer initializes
+          // Only caller initiates
+          if (role !== "caller") return;
+
+          // small delay so receiver peer initializes
           setTimeout(() => {
-            if (callProcessed.current) return;
-
             console.log("Calling:", remoteUserId);
 
             const call = peer.call(remoteUserId, stream);
 
-            callProcessed.current = true;
             callRef.current = call;
 
             call.on("stream", (userStream) => {
@@ -107,7 +127,7 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
 
             call.on("close", cleanupCall);
             call.on("error", cleanupCall);
-          }, 800); // small sync delay
+          }, 1200);
         });
       })
       .catch((err) => {
@@ -117,36 +137,13 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
       });
 
     // =============================
-    // CLEANUP FUNCTION
-    // =============================
-    const cleanupCall = () => {
-      console.log("Cleaning up call");
-
-      if (callRef.current) {
-        callRef.current.close();
-        callRef.current = null;
-      }
-
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-
-      if (peerRef.current && !peerRef.current.destroyed) {
-        peerRef.current.destroy();
-      }
-
-      onEnd();
-    };
-
-    // =============================
     // UNMOUNT CLEANUP
     // =============================
     return () => {
       isMounted = false;
       cleanupCall();
     };
-  }, [myId, remoteUserId, type, onEnd]);
+  }, [myId, remoteUserId, type, role, onEnd]);
 
   // =============================
   // UI
@@ -167,7 +164,7 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
           <div className="call-loading">Connecting...</div>
         )}
 
-        {/* Local Video (Muted) */}
+        {/* Local Video */}
         <video
           ref={myVideoRef}
           autoPlay
