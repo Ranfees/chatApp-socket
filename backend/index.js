@@ -39,8 +39,7 @@ app.use("/api/users", require("./routes/userRoutes"));
 require("./sockets/socketHandler")(io);
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   connectCloudinary();
-  console.log(`Server running on port ${PORT}`)
-}
-);
+  console.log(`Server running on http://192.168.1.5:${PORT}`);
+});
