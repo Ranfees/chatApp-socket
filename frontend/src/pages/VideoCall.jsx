@@ -1,96 +1,194 @@
-import React, { useEffect, useRef, useState } from 'react';
-import Peer from 'peerjs';
-import socket from '../socket/socket';
+import React, { useEffect, useRef, useState } from "react";
+import Peer from "peerjs";
+import socket from "../socket/socket";
 
 const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
-  const [myStream, setMyStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
-  const myVideoRef = useRef();
-  const remoteVideoRef = useRef();
-  const peerInstance = useRef(null);
-  const callProcessed = useRef(false); // Prevents duplicate call attempts
+
+  const myVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+
+  const peerRef = useRef(null);
+  const streamRef = useRef(null);
+  const callRef = useRef(null);
+
+  const callProcessed = useRef(false); // prevents double call
 
   useEffect(() => {
-    // 1. Initialize Peer with Google's STUN servers for NAT traversal
-   // Change this line in VideoCall.jsx
-const peer = new Peer(myId, {
-  config: {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-    ],
-  },
-});
-    peerInstance.current = peer;
+    let isMounted = true;
 
+    // =============================
+    // 1️⃣ Create Peer Connection
+    // =============================
+    const peer = new Peer(myId, {
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" },
+        ],
+      },
+      debug: 2,
+    });
+
+    peerRef.current = peer;
+
+    // =============================
+    // 2️⃣ Get Camera & Mic
+    // =============================
     const constraints = {
-      video: type === 'video',
+      video: type === "video",
       audio: true,
     };
 
     navigator.mediaDevices
       .getUserMedia(constraints)
       .then((stream) => {
-        setMyStream(stream);
-        if (myVideoRef.current) myVideoRef.current.srcObject = stream;
+        if (!isMounted) return;
 
-        // ANSWERING LOGIC: Listen for incoming calls
-        peer.on('call', (incomingCall) => {
-          callProcessed.current = true; // Mark as handled so we don't try to call them
+        streamRef.current = stream;
+
+        // show local video
+        if (myVideoRef.current) {
+          myVideoRef.current.srcObject = stream;
+        }
+
+        // =============================
+        // 3️⃣ ANSWER INCOMING CALL
+        // =============================
+        peer.on("call", (incomingCall) => {
+          console.log("Incoming call received");
+
+          callProcessed.current = true;
+          callRef.current = incomingCall;
+
           incomingCall.answer(stream);
-          incomingCall.on('stream', (userStream) => {
+
+          incomingCall.on("stream", (userStream) => {
+            console.log("Receiving remote stream");
+
             setRemoteStream(userStream);
-            if (remoteVideoRef.current) remoteVideoRef.current.srcObject = userStream;
+
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = userStream;
+            }
           });
+
+          incomingCall.on("close", cleanupCall);
+          incomingCall.on("error", cleanupCall);
         });
 
-        // CALLING LOGIC: Small delay to ensure the receiver's Peer is initialized
-        setTimeout(() => {
-          if (!callProcessed.current) {
+        // =============================
+        // 4️⃣ MAKE OUTGOING CALL
+        // =============================
+        peer.on("open", () => {
+          console.log("Peer connected:", myId);
+
+          // wait slightly so receiver peer initializes
+          setTimeout(() => {
+            if (callProcessed.current) return;
+
+            console.log("Calling:", remoteUserId);
+
             const call = peer.call(remoteUserId, stream);
-            if (call) {
-              call.on('stream', (userStream) => {
-                setRemoteStream(userStream);
-                if (remoteVideoRef.current) remoteVideoRef.current.srcObject = userStream;
-              });
-            }
-          }
-        }, 1500);
+
+            callProcessed.current = true;
+            callRef.current = call;
+
+            call.on("stream", (userStream) => {
+              console.log("Remote stream received");
+
+              setRemoteStream(userStream);
+
+              if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = userStream;
+              }
+            });
+
+            call.on("close", cleanupCall);
+            call.on("error", cleanupCall);
+          }, 800); // small sync delay
+        });
       })
       .catch((err) => {
-        console.error("Media Error:", err);
-        alert("Camera/Mic access denied.");
+        console.error("Media access error:", err);
+        alert("Camera/Microphone permission denied");
         onEnd();
       });
 
-    return () => {
-      peer.destroy();
-      if (myStream) {
-        myStream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [myId, remoteUserId, type]);
+    // =============================
+    // CLEANUP FUNCTION
+    // =============================
+    const cleanupCall = () => {
+      console.log("Cleaning up call");
 
+      if (callRef.current) {
+        callRef.current.close();
+        callRef.current = null;
+      }
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+
+      if (peerRef.current && !peerRef.current.destroyed) {
+        peerRef.current.destroy();
+      }
+
+      onEnd();
+    };
+
+    // =============================
+    // UNMOUNT CLEANUP
+    // =============================
+    return () => {
+      isMounted = false;
+      cleanupCall();
+    };
+  }, [myId, remoteUserId, type, onEnd]);
+
+  // =============================
+  // UI
+  // =============================
   return (
     <div className="call-overlay">
       <div className="video-container">
-        {/* Remote Video (Main) */}
-       {/* Remote Video: REMOVE 'muted' so you can hear them */}
-{remoteStream ? (
-  <video playsInline ref={remoteVideoRef} autoPlay className="remote-video" />
-) : (
-  <div className="call-loading">Connecting...</div>
-)}
 
-{/* Local Video: KEEP 'muted' so you don't hear yourself */}
-<video playsInline muted ref={myVideoRef} autoPlay className="local-video" />
+        {/* Remote Video */}
+        {remoteStream ? (
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className="remote-video"
+          />
+        ) : (
+          <div className="call-loading">Connecting...</div>
+        )}
 
+        {/* Local Video (Muted) */}
+        <video
+          ref={myVideoRef}
+          autoPlay
+          muted
+          playsInline
+          className="local-video"
+        />
+
+        {/* Controls */}
         <div className="call-controls">
-          <button onClick={onEnd} className="hangup-btn">
+          <button
+            className="hangup-btn"
+            onClick={() => {
+              if (callRef.current) callRef.current.close();
+              onEnd();
+            }}
+          >
             Hang Up
           </button>
         </div>
+
       </div>
     </div>
   );
