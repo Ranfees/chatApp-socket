@@ -65,17 +65,16 @@ const Chat = () => {
       }
     };
 
-    const handleIncomingCall = ({ from, type, fromName }) => {
-      // Only respond if the call is from the person we are currently viewing
-      // or if we want to allow calls from anyone at any time.
-      const accept = window.confirm(`Incoming ${type} call from ${fromName}. Accept?`);
-      if (accept) {
-        setCallType(type);
-        setIsCalling(true);
-      } else {
-        socket.emit("end-call", { to: from });
-      }
-    };
+  const handleIncomingCall = ({ from, type, fromName }) => {
+  const accept = window.confirm(`Incoming ${type} call from ${fromName}. Accept?`);
+  if (accept) {
+    // This click interaction is crucial for audio to play
+    setCallType(type);
+    setIsCalling(true);
+  } else {
+    socket.emit("end-call", { to: from });
+  }
+};
 
     socket.on("receive_message", handleReceive);
     socket.on("incoming-call", handleIncomingCall);
