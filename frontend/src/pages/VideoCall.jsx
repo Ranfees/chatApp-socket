@@ -12,14 +12,16 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
 
   useEffect(() => {
     // 1. Initialize Peer with Google's STUN servers for NAT traversal
-    const peer = new Peer(myId, {
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-        ],
-      },
-    });
+   // Change this line in VideoCall.jsx
+const peer = new Peer(myId, {
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+    ],
+  },
+});
     peerInstance.current = peer;
 
     const constraints = {
@@ -74,17 +76,15 @@ const VideoCall = ({ myId, remoteUserId, type, onEnd }) => {
     <div className="call-overlay">
       <div className="video-container">
         {/* Remote Video (Main) */}
-        {remoteStream ? (
-          <video playsInline ref={remoteVideoRef} autoPlay className="remote-video" />
-        ) : (
-          <div className="call-loading">
-            <p>Connecting to Peer...</p>
-            <span>Ensure the other user has accepted the call</span>
-          </div>
-        )}
+       {/* Remote Video: REMOVE 'muted' so you can hear them */}
+{remoteStream ? (
+  <video playsInline ref={remoteVideoRef} autoPlay className="remote-video" />
+) : (
+  <div className="call-loading">Connecting...</div>
+)}
 
-        {/* Local Video (Small Picture-in-Picture) */}
-        <video playsInline muted ref={myVideoRef} autoPlay className="local-video" />
+{/* Local Video: KEEP 'muted' so you don't hear yourself */}
+<video playsInline muted ref={myVideoRef} autoPlay className="local-video" />
 
         <div className="call-controls">
           <button onClick={onEnd} className="hangup-btn">
