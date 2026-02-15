@@ -51,13 +51,34 @@ const HomeLayout = () => {
   }, []);
 
   useEffect(() => {
-    const handleReceiveMessage = (msg) => {
-      if (msg.receiver === currentUser?.id && msg.sender !== userId) {
-        setUnreadCounts(prev => {
-          const updated = { ...prev };
-          updated[msg.sender] = (updated[msg.sender] || 0) + 1;
-          return updated;
-        });
+    const handleReceiveMessage = async (msg) => {
+      const myId = currentUser?.id;
+      if (!myId) return;
+
+      const otherPartyId =
+        msg.sender === myId ? msg.receiver : msg.sender;
+
+      const chatKey = [myId, otherPartyId].sort().join("_");
+
+      const localData = JSON.parse(
+        localStorage.getItem("chat_" + chatKey) || "[]"
+      );
+
+      if (!localData.find((m) => m._id === msg._id)) {
+        const updated = [...localData, msg];
+        localStorage.setItem("chat_" + chatKey, JSON.stringify(updated));
+        window.dispatchEvent(new Event("chat_updated"));
+      }
+
+      if (msg.receiver === myId && msg.sender !== userId) {
+        setUnreadCounts(prev => ({
+          ...prev,
+          [msg.sender]: (prev[msg.sender] || 0) + 1
+        }));
+      }
+
+      if (msg.receiver === myId) {
+        socket.emit("message_stored_locally", msg._id);
       }
     };
 
@@ -72,7 +93,7 @@ const HomeLayout = () => {
     if (userId) {
       setUnreadCounts(prev => {
         const updated = { ...prev };
-        delete updated[userId]; 
+        delete updated[userId];
         return updated;
       });
     }
@@ -148,29 +169,29 @@ const HomeLayout = () => {
             </div>
           </div>
 
-            <div className="nav-bottom">
-              <div
-                className="nav-profile"
-                onClick={() => navigate("/profile")}
-              >
-                <img
-                  src={
-                    currentUser?.profilePic
-                      ? currentUser.profilePic
-                      : defaultAvatar
-                  }
-                  alt="Profile"
-                  className="nav-profile-img"
-                />
-              </div>
-
-              <div
-                className="nav-avatar-small logout-btn"
-                onClick={handleLogout}
-              >
-                <LogOut size={18} />
-              </div>
+          <div className="nav-bottom">
+            <div
+              className="nav-profile"
+              onClick={() => navigate("/profile")}
+            >
+              <img
+                src={
+                  currentUser?.profilePic
+                    ? currentUser.profilePic
+                    : defaultAvatar
+                }
+                alt="Profile"
+                className="nav-profile-img"
+              />
             </div>
+
+            <div
+              className="nav-avatar-small logout-btn"
+              onClick={handleLogout}
+            >
+              <LogOut size={18} />
+            </div>
+          </div>
         </nav>
 
         <aside
