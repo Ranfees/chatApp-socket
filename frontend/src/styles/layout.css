@@ -300,7 +300,6 @@
   font-size: 14px;
 }
 
-/* desktop-only helper */
 @media (min-width: 769px) {
   .mobile-bottom-nav {
     display: none;
@@ -321,7 +320,7 @@
     position: absolute;
     top: 40px;
     right: 0;
-    background: #1a1411; /* Match your theme */
+    background: #1a1411; 
     border: 1px solid var(--glass-border);
     border-radius: 8px;
     min-width: 150px;
@@ -392,14 +391,7 @@
   .mobile-nav-item.active {
     color: var(--accent-gold);
   }
-/* 
-  .mobile-nav-item.active .nav-badge-container {
-    background: rgba(200, 155, 109, 0.2);
-    padding: 4px 15px;
-    border-radius: 15px;
-  } */
 
-  /* Matching the WhatsApp "green" bubble style */
   .badge {
     background: #22c55e;
     color: black;
@@ -434,7 +426,6 @@
   }
 }
 
-/* Dropdown Positioning */
 .menu-container {
   position: relative;
   display: flex;
@@ -445,7 +436,7 @@
   position: absolute;
   top: 100%;
   right: 0;
-  background: #231c18; /* Match your sidebar-bg */
+  background: #231c18;
   border: 1px solid var(--glass-border);
   border-radius: 8px;
   box-shadow: 0 8px 16px rgba(0,0,0,0.5);
@@ -481,10 +472,9 @@
   border-top: 1px solid var(--glass-border);
 }
 
-/* Specific adjustment for Profile Header to spread items */
 .profile-header {
     display: flex;
-    justify-content: space-between; /* This pushes the menu to the right */
+    justify-content: space-between;
     align-items: center;
     width: 100%;
 }
@@ -494,8 +484,6 @@
     align-items: center;
     gap: 15px;
 }
-
-/* Add these new styles */
 
 .unread-badge {
   background: #22c55e;
@@ -557,7 +545,6 @@
   filter: drop-shadow(0 0 8px var(--accent-gold));
 }
 
-/* DESKTOP: Badge for nav-rail icon */
 .nav-badge {
   position: absolute;
   top: -8px;

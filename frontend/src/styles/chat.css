@@ -400,10 +400,6 @@
   color: #ff5e5e;
 }
 
-/* =============================
-   CALL CONTAINER
-============================= */
-
 .call-container {
   position: fixed;
   inset: 0;
@@ -416,10 +412,6 @@
   flex-direction: column;
 }
 
-/* =============================
-   REMOTE VIDEO (Main Screen)
-============================= */
-
 .call-container video {
   width: 80%;
   max-width: 900px;
@@ -427,10 +419,6 @@
   border-radius: 12px;
   object-fit: cover;
 }
-
-/* =============================
-   LOCAL VIDEO (Small Preview)
-============================= */
 
 .call-container video:first-child {
   position: absolute;
@@ -442,10 +430,6 @@
   border-radius: 10px;
   background: black;
 }
-
-/* =============================
-   END CALL BUTTON
-============================= */
 
 .call-container button {
   position: absolute;

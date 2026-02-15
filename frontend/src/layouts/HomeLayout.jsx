@@ -16,10 +16,9 @@ const HomeLayout = () => {
   const [users, setUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [search, setSearch] = useState("");
-  const [unreadCounts, setUnreadCounts] = useState({}); // Track unread per user
+  const [unreadCounts, setUnreadCounts] = useState({});
   const [totalUnread, setTotalUnread] = useState(0);
 
-  // Load unread counts from localStorage on mount
   useEffect(() => {
     const savedUnread = JSON.parse(localStorage.getItem("unreadCounts") || "{}");
     setUnreadCounts(savedUnread);
@@ -27,26 +26,18 @@ const HomeLayout = () => {
     setTotalUnread(total);
   }, []);
 
-  // Save unread counts to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem("unreadCounts", JSON.stringify(unreadCounts));
     const total = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
     setTotalUnread(total);
   }, [unreadCounts]);
 
-
   const currentUser = JSON.parse(localStorage.getItem("user"));
 
-  /* ===========================
-        FETCH USERS
-  ============================ */
   useEffect(() => {
     api.get("/api/users").then((res) => setUsers(res.data));
   }, []);
 
-  /* ===========================
-        ONLINE USERS LISTENER
-  ============================ */
   useEffect(() => {
     const handleOnlineUsers = (users) => {
       setOnlineUsers(users);
@@ -61,7 +52,6 @@ const HomeLayout = () => {
 
   useEffect(() => {
     const handleReceiveMessage = (msg) => {
-      // Only count unread if it's for current user and NOT in the current chat
       if (msg.receiver === currentUser?.id && msg.sender !== userId) {
         setUnreadCounts(prev => {
           const updated = { ...prev };
@@ -78,25 +68,18 @@ const HomeLayout = () => {
     };
   }, [currentUser?.id, userId]);
 
-  // Clear unread count when user opens a chat
   useEffect(() => {
     if (userId) {
       setUnreadCounts(prev => {
         const updated = { ...prev };
-        delete updated[userId]; // Remove unread count for this user
+        delete updated[userId]; 
         return updated;
       });
     }
   }, [userId]);
 
-
-  /* ===========================
-        GLOBAL INCOMING CALL
-        (Fixes no ringing issue)
-  ============================ */
   useEffect(() => {
     const handleIncomingCallGlobal = ({ from }) => {
-      // If user is not already in that chat, navigate
       if (location.pathname !== `/chat/${from}`) {
         navigate(`/chat/${from}`);
       }
@@ -109,9 +92,6 @@ const HomeLayout = () => {
     };
   }, [location.pathname, navigate]);
 
-  /* ===========================
-        FORMAT LAST SEEN
-  ============================ */
   const formatLastSeen = (date) => {
     if (!date) return "Offline";
 
@@ -142,9 +122,6 @@ const HomeLayout = () => {
     return `Last seen ${last.toLocaleDateString()}`;
   };
 
-  /* ===========================
-        LOGOUT
-  ============================ */
   const handleLogout = () => {
     socket.disconnect();
     localStorage.removeItem("token");
@@ -153,23 +130,16 @@ const HomeLayout = () => {
     navigate("/login");
   };
 
-  /* ===========================
-        FILTER USERS
-  ============================ */
   const filteredUsers = users.filter((user) =>
     user.username.toLowerCase().includes(search.toLowerCase())
   );
 
-  /* ===========================
-              UI
-  ============================ */
   return (
     <div className="app-container">
       <div className="app-shell">
 
         <nav className="nav-rail desktop-only">
           <div className="nav-top">
-            {/* WRAP IN CONTAINER FOR BADGE POSITIONING */}
             <div className="nav-icon-container" onClick={() => navigate("/")}>
               <div className="nav-icon active">💬</div>
               {totalUnread > 0 && (
@@ -203,7 +173,6 @@ const HomeLayout = () => {
             </div>
         </nav>
 
-        {/* SIDEBAR */}
         <aside
           className={`sidebar ${userId || isProfile ? "mobile-hidden" : ""
             } ${isProfile ? "desktop-hidden" : ""}`}
@@ -260,7 +229,6 @@ const HomeLayout = () => {
                       </span>
                     </div>
                   </div>
-                  {/* Show unread badge in sidebar */}
                   {unreadCount > 0 && (
                     <span className="unread-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
                   )}
@@ -276,29 +244,23 @@ const HomeLayout = () => {
           <Outlet context={{ onlineUsers, users }} />
         </main>
 
-        {/* 2. Mobile Bottom Tab Bar (Visible only on mobile "/" route) */}
         {!userId && (
           <nav className="mobile-bottom-nav">
             <div className={`mobile-nav-item ${!isProfile ? "active" : ""}`} onClick={() => navigate("/")}>
               <div className="nav-badge-container">
                 {/* 💬 */}
                 <MessagesSquare size={23} />
-                {/* Show total unread badge */}
                 {totalUnread > 0 && (
                   <span className="badge">{totalUnread > 99 ? '99+' : totalUnread}</span>
                 )}                </div>
-              {/* <span>Chats</span> */}
             </div>
             <div className={`mobile-nav-item ${isProfile ? "active" : ""}`} onClick={() => navigate("/profile")}>
               <div className="mobile-avatar-icon">
-                {/* <img src={currentUser?.profilePic || defaultAvatar} alt="Me" /> */}
                 <User size={27} />
               </div>
-              {/* <span>Profile</span> */}
             </div>
             <div className="mobile-nav-item" onClick={handleLogout}>
               <LogOut size={24} />
-              {/* <span>Logout</span> */}
             </div>
           </nav>
         )}

@@ -9,7 +9,6 @@
 
 .profile-details-sidebar {
   width: 350px;
-  /* min-width: 320px; */
   background: var(--sidebar-bg);
   border-right: 1px solid var(--glass-border);
   padding: 30px;
@@ -22,7 +21,6 @@
 .profile-header{
   display: flex;
   align-items: center;
-  /* justify-content: flex-start; */
   gap: 15px;
   margin-bottom: 30px;
 }
@@ -198,11 +196,11 @@
   .profile-details-sidebar {
     width: 100%;
     height: calc(100dvh - 70px);
-    padding-bottom: 80px; /* Add padding so content doesn't get hidden behind the nav */
+    padding-bottom: 80px;
     border-right: none;
   }
   
   .mobile-back-btn {
-    display: block; /* Optional: hide back button since you have bottom nav now */
+    display: block;
   }
 }

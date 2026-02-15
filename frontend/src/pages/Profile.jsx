@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router"; // Added missing import
+import { useNavigate } from "react-router";
 import defaultAvatar from "../assets/avatar.jpg";
 import { Edit2, Smartphone, User, ArrowLeft, MoreVertical } from "lucide-react";
 import "../styles/profile.css";
 import api from "../api/axios";
 
 const Profile = () => {
-    const navigate = useNavigate(); // Initialize navigate
+    const navigate = useNavigate(); 
     const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("user")) || {});
     const [preview, setPreview] = useState(user?.profilePic || "");
     const [isEditing, setIsEditing] = useState(false);

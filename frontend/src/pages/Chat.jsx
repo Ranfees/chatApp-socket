@@ -2,32 +2,25 @@ import { useNavigate, useOutletContext, useParams } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import socket from "../socket/socket";
 import "../styles/chat.css";
-import { ArrowLeft, Phone, Video, MoreVertical, User as UserIcon } from "lucide-react"; // Added icons
+import { ArrowLeft, Phone, Video, MoreVertical, User as UserIcon } from "lucide-react";
 import { decryptWith, encryptFor } from "../utils/crypto";
 
 const Chat = () => {
   const navigate = useNavigate();
   const { userId } = useParams();
   const { users, onlineUsers } = useOutletContext();
-
   const userString = localStorage.getItem("user");
   const currentUser = JSON.parse(userString);
   const myId = currentUser?.id;
-
   const chatKey = [myId, userId].sort().join("_");
   const receiver = users?.find((u) => u._id === userId);
   const isOnline = onlineUsers.includes(userId);
-
   const [text, setText] = useState("");
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(false);
-
   const [showMenu, setShowMenu] = useState(false);
-  
-  // CALL STATES
   const [isCalling, setIsCalling] = useState(false);
   const [callType, setCallType] = useState(null);
-
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerRef = useRef(null);
@@ -35,44 +28,22 @@ const Chat = () => {
   const pendingCandidates = useRef([]);
   const bottomRef = useRef();
 
-  /* ===========================
-        WEBRTC CORE
-  ============================ */
-
-  /* LOAD LOCAL CHAT */
-  // useEffect(() => {
-  //   const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
-  //   const unique = Array.from(
-  //     new Map(local.map(m => [m._id?.toString(), m])).values()
-  //   );
-  //   setMessages(unique);
-  //   localStorage.setItem("chat_" + chatKey, JSON.stringify(unique));
-
-  //   const unreadCounts = JSON.parse(localStorage.getItem("unreadCounts") || "{}");
-  //   if (unreadCounts[userId]) {
-  //     delete unreadCounts[userId];
-  //     localStorage.setItem("unreadCounts", JSON.stringify(unreadCounts));
-  //   }
-  // }, [userId, chatKey]);
-
-   useEffect(() => {
+  useEffect(() => {
     const loadAndDecryptMessages = async () => {
       const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
       const unique = Array.from(
         new Map(local.map(m => [m._id?.toString(), m])).values()
       );
 
-      // Decrypt all messages
       const decrypted = await Promise.all(
         unique.map(async (msg) => {
           try {
             const privateKey = localStorage.getItem("privateKey");
-            
-            // Decrypt the version meant for this user
-            const encryptedText = msg.sender === myId 
-              ? msg.encryptedForSender 
+
+            const encryptedText = msg.sender === myId
+              ? msg.encryptedForSender
               : msg.encryptedForReceiver;
-            
+
             const clearText = await decryptWith(encryptedText, privateKey);
             return { ...msg, clearText };
           } catch (err) {
@@ -85,7 +56,6 @@ const Chat = () => {
       setMessages(decrypted);
       localStorage.setItem("chat_" + chatKey, JSON.stringify(decrypted));
 
-      // Mark unread as read
       const unreadCounts = JSON.parse(localStorage.getItem("unreadCounts") || "{}");
       if (unreadCounts[userId]) {
         delete unreadCounts[userId];
@@ -97,33 +67,24 @@ const Chat = () => {
   }, [userId, chatKey, myId]);
 
   const createPeer = (targetId) => {
-    // const peer = new RTCPeerConnection({
-    //   iceServers: [
-    //     { urls: "stun:stun.l.google.com:19302" },
-    //     { urls: "stun:stun1.l.google.com:19302" },
-    //     { urls: "stun:stun2.l.google.com:19302" },
-    //   ],
-    // });
-
     const peer = new RTCPeerConnection({
-  iceServers: [
-    {
-      urls: "stun:stun.l.google.com:19302",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-  ],
-});
+      iceServers: [
+        {
+          urls: "stun:stun.l.google.com:19302",
+        },
+        {
+          urls: "turn:openrelay.metered.ca:80",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        {
+          urls: "turn:openrelay.metered.ca:443",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+      ],
+    });
 
-    // Send ICE to other peer
     peer.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit("ice-candidate", {
@@ -133,7 +94,6 @@ const Chat = () => {
       }
     };
 
-    // Remote track handler (stable version)
     peer.ontrack = (event) => {
       if (!remoteVideoRef.current) return;
 
@@ -147,10 +107,6 @@ const Chat = () => {
 
     return peer;
   };
-
-  /* ===========================
-        START CALL
-  ============================ */
 
   const startCall = async (type) => {
     try {
@@ -188,10 +144,6 @@ const Chat = () => {
     }
   };
 
-  /* ===========================
-        END CALL
-  ============================ */
-
   const endCall = () => {
     setIsCalling(false);
     setCallType(null);
@@ -209,13 +161,8 @@ const Chat = () => {
     socket.emit("end-call", { to: userId });
   };
 
-  /* ===========================
-        SOCKET LISTENERS
-  ============================ */
-
   useEffect(() => {
-    /* ------------------ RECEIVE MESSAGE ------------------ */
-    const handleReceive = async(msg) => {
+    const handleReceive = async (msg) => {
       const otherPartyId =
         msg.sender === myId ? msg.receiver : msg.sender;
 
@@ -227,27 +174,26 @@ const Chat = () => {
         localStorage.getItem("chat_" + targetChatKey) || "[]"
       );
 
-       // Decrypt the message if in current chat
-    let messageToAdd = msg;
-    if (isCurrentChat) {
-      try {
-        const privateKey = localStorage.getItem("privateKey");
-        if (!privateKey) {
-          console.error("Private key not found in localStorage");
-          messageToAdd = { ...msg, clearText: "[Key Missing]" };
-        } else {
-          const encryptedText = msg.sender === myId 
-            ? msg.encryptedForSender 
-            : msg.encryptedForReceiver;
-          
-          const clearText = await decryptWith(encryptedText, privateKey);
-          messageToAdd = { ...msg, clearText };
+      let messageToAdd = msg;
+      if (isCurrentChat) {
+        try {
+          const privateKey = localStorage.getItem("privateKey");
+          if (!privateKey) {
+            console.error("Private key not found in localStorage");
+            messageToAdd = { ...msg, clearText: "[Key Missing]" };
+          } else {
+            const encryptedText = msg.sender === myId
+              ? msg.encryptedForSender
+              : msg.encryptedForReceiver;
+
+            const clearText = await decryptWith(encryptedText, privateKey);
+            messageToAdd = { ...msg, clearText };
+          }
+        } catch (err) {
+          console.error("Decryption error for message:", msg._id, err);
+          messageToAdd = { ...msg, clearText: "[Decryption Error]" };
         }
-      } catch (err) {
-        console.error("Decryption error for message:", msg._id, err);
-        messageToAdd = { ...msg, clearText: "[Decryption Error]" };
       }
-    }
 
 
       if (!localData.find((m) => m._id === msg._id)) {
@@ -269,9 +215,7 @@ const Chat = () => {
         socket.emit("message_stored_locally", msg._id);
       }
     };
-  
 
-    /* ------------------ INCOMING CALL ------------------ */
     const handleIncomingCall = async ({ from, offer, type }) => {
       setCallType(type);
       setIsCalling(true);
@@ -298,7 +242,6 @@ const Chat = () => {
         new RTCSessionDescription(offer)
       );
 
-      // 🔥 Apply buffered ICE
       for (let c of pendingCandidates.current) {
         await peer.addIceCandidate(new RTCIceCandidate(c));
       }
@@ -313,13 +256,11 @@ const Chat = () => {
       });
     };
 
-    /* ------------------ CALL ANSWERED ------------------ */
     const handleCallAnswered = async ({ answer }) => {
       await peerRef.current?.setRemoteDescription(
         new RTCSessionDescription(answer)
       );
 
-      // 🔥 Apply buffered ICE
       for (let c of pendingCandidates.current) {
         await peerRef.current.addIceCandidate(
           new RTCIceCandidate(c)
@@ -328,7 +269,6 @@ const Chat = () => {
       pendingCandidates.current = [];
     };
 
-    /* ------------------ ICE CANDIDATE ------------------ */
     const handleIce = async ({ candidate }) => {
       try {
         if (peerRef.current?.remoteDescription) {
@@ -358,14 +298,9 @@ const Chat = () => {
     };
   }, [userId, myId]);
 
-  /* AUTO SCROLL */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUser]);
-
-  /* ===========================
-        SEND MESSAGE
-  ============================ */
 
   const sendMessage = async () => {
     if (!text.trim()) return;
@@ -392,10 +327,6 @@ const Chat = () => {
       console.error("Encryption failed", err);
     }
   };
-
-  /* ===========================
-        UI
-  ============================ */
 
   const handleLogout = () => {
     socket.disconnect();
@@ -427,7 +358,6 @@ const Chat = () => {
           </div>
         </div>
 
-        {/* Ensure this div is OUTSIDE header-left but INSIDE chat-header */}
         <div className="call-actions">
           <button className="call-btn" onClick={() => startCall('audio')}>
             <Phone size={20} />
@@ -452,7 +382,7 @@ const Chat = () => {
 
       </header>
 
-       {isCalling && (
+      {isCalling && (
         <div className="call-container">
           <video ref={localVideoRef} autoPlay muted playsInline />
           <video ref={remoteVideoRef} autoPlay playsInline />
@@ -464,9 +394,8 @@ const Chat = () => {
         {messages.map((msg) => (
           <div
             key={msg._id}
-            className={`chat-bubble ${
-              msg.sender === myId ? "me" : "other"
-            }`}
+            className={`chat-bubble ${msg.sender === myId ? "me" : "other"
+              }`}
           >
             {msg.clearText || "..."}
           </div>
