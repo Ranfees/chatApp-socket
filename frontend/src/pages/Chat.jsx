@@ -21,7 +21,6 @@ const Chat = () => {
   const [text, setText] = useState("");
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(false);
-  const [displayMessages, setDisplayMessages] = useState([]);
 
   const [showMenu, setShowMenu] = useState(false);
   
@@ -41,22 +40,61 @@ const Chat = () => {
   ============================ */
 
   /* LOAD LOCAL CHAT */
-  useEffect(() => {
-    const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
-    const unique = Array.from(
-      new Map(local.map(m => [m._id?.toString(), m])).values()
-    );
-    setMessages(unique);
-    localStorage.setItem("chat_" + chatKey, JSON.stringify(unique));
+  // useEffect(() => {
+  //   const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
+  //   const unique = Array.from(
+  //     new Map(local.map(m => [m._id?.toString(), m])).values()
+  //   );
+  //   setMessages(unique);
+  //   localStorage.setItem("chat_" + chatKey, JSON.stringify(unique));
 
-    // NEW: Mark this user's unread messages as read when entering chat
-    const unreadCounts = JSON.parse(localStorage.getItem("unreadCounts") || "{}");
-    if (unreadCounts[userId]) {
-      delete unreadCounts[userId];
-      localStorage.setItem("unreadCounts", JSON.stringify(unreadCounts));
-    }
-  }, [userId, chatKey]);
+  //   const unreadCounts = JSON.parse(localStorage.getItem("unreadCounts") || "{}");
+  //   if (unreadCounts[userId]) {
+  //     delete unreadCounts[userId];
+  //     localStorage.setItem("unreadCounts", JSON.stringify(unreadCounts));
+  //   }
+  // }, [userId, chatKey]);
 
+   useEffect(() => {
+    const loadAndDecryptMessages = async () => {
+      const local = JSON.parse(localStorage.getItem("chat_" + chatKey) || "[]");
+      const unique = Array.from(
+        new Map(local.map(m => [m._id?.toString(), m])).values()
+      );
+
+      // Decrypt all messages
+      const decrypted = await Promise.all(
+        unique.map(async (msg) => {
+          try {
+            const privateKey = localStorage.getItem("privateKey");
+            
+            // Decrypt the version meant for this user
+            const encryptedText = msg.sender === myId 
+              ? msg.encryptedForSender 
+              : msg.encryptedForReceiver;
+            
+            const clearText = await decryptWith(encryptedText, privateKey);
+            return { ...msg, clearText };
+          } catch (err) {
+            console.error("Decryption error for message:", msg._id, err);
+            return { ...msg, clearText: "[Decryption Error]" };
+          }
+        })
+      );
+
+      setMessages(decrypted);
+      localStorage.setItem("chat_" + chatKey, JSON.stringify(decrypted));
+
+      // Mark unread as read
+      const unreadCounts = JSON.parse(localStorage.getItem("unreadCounts") || "{}");
+      if (unreadCounts[userId]) {
+        delete unreadCounts[userId];
+        localStorage.setItem("unreadCounts", JSON.stringify(unreadCounts));
+      }
+    };
+
+    loadAndDecryptMessages();
+  }, [userId, chatKey, myId]);
 
   const createPeer = (targetId) => {
     // const peer = new RTCPeerConnection({
@@ -177,7 +215,7 @@ const Chat = () => {
 
   useEffect(() => {
     /* ------------------ RECEIVE MESSAGE ------------------ */
-    const handleReceive = (msg) => {
+    const handleReceive = async(msg) => {
       const otherPartyId =
         msg.sender === myId ? msg.receiver : msg.sender;
 
@@ -189,8 +227,31 @@ const Chat = () => {
         localStorage.getItem("chat_" + targetChatKey) || "[]"
       );
 
+       // Decrypt the message if in current chat
+    let messageToAdd = msg;
+    if (isCurrentChat) {
+      try {
+        const privateKey = localStorage.getItem("privateKey");
+        if (!privateKey) {
+          console.error("Private key not found in localStorage");
+          messageToAdd = { ...msg, clearText: "[Key Missing]" };
+        } else {
+          const encryptedText = msg.sender === myId 
+            ? msg.encryptedForSender 
+            : msg.encryptedForReceiver;
+          
+          const clearText = await decryptWith(encryptedText, privateKey);
+          messageToAdd = { ...msg, clearText };
+        }
+      } catch (err) {
+        console.error("Decryption error for message:", msg._id, err);
+        messageToAdd = { ...msg, clearText: "[Decryption Error]" };
+      }
+    }
+
+
       if (!localData.find((m) => m._id === msg._id)) {
-        const updatedLocal = [...localData, msg];
+        const updatedLocal = [...localData, messageToAdd];
         localStorage.setItem(
           "chat_" + targetChatKey,
           JSON.stringify(updatedLocal)
@@ -200,7 +261,7 @@ const Chat = () => {
       if (isCurrentChat) {
         setMessages((prev) => {
           if (prev.find((m) => m._id === msg._id)) return prev;
-          return [...prev, msg];
+          return [...prev, messageToAdd];
         });
       }
 
@@ -400,7 +461,7 @@ const Chat = () => {
       )}
 
       <div className="chat-messages">
-        {displayMessages.map((msg) => (
+        {messages.map((msg) => (
           <div
             key={msg._id}
             className={`chat-bubble ${
