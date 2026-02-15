@@ -6,6 +6,7 @@ import Signup from "./pages/SignUp";
 import HomeLayout from "./layouts/HomeLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Profile from "./pages/Profile";
+import './styles/index.css'
 
 function App() {
   return (

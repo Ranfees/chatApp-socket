@@ -5,28 +5,22 @@
   --text-dim: #9f948d;
   --glass-border: rgba(255, 255, 255, 0.08);
 }
-html, body, #root {
-  height: 100%;
-}
 
-
-*{
- box-sizing: border-box;
- margin: 0;
- padding: 0;
-}
-body{
-  padding: 0;
+* {
+  box-sizing: border-box;
   margin: 0;
+  padding: 0;
 }
+
 
 .app-container {
-  height: 100vh;
+  height: 100dvh;
   width: 100vw;
   background: radial-gradient(circle at top right, #2d2019, #0f0f0f);
   display: flex;
-   align-items: stretch;
+  align-items: stretch;
   justify-content: flex-start;
+  overflow: hidden;
 }
 
 .app-shell {
@@ -34,7 +28,7 @@ body{
   flex: 1;
   width: 100%;
   max-width: 1600px;
-  height: 100%;
+  height: 100dvh;
   min-height: 0;
   background: var(--sidebar-bg);
   border: 1px solid var(--glass-border);
@@ -62,7 +56,10 @@ body{
   transition: 0.3s;
 }
 
-.nav-icon.active { opacity: 1; filter: drop-shadow(0 0 8px var(--accent-gold)); }
+.nav-icon.active {
+  opacity: 1;
+  filter: drop-shadow(0 0 8px var(--accent-gold));
+}
 
 /* SIDEBAR */
 .sidebar {
@@ -70,6 +67,8 @@ body{
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--glass-border);
+   height: 100%;
+  min-height: 0;
 }
 
 .sidebar-header {
@@ -79,7 +78,11 @@ body{
   align-items: center;
 }
 
-.sidebar-header h1 { font-size: 22px; color: #fff; margin: 0; }
+.sidebar-header h1 {
+  font-size: 22px;
+  color: #fff;
+  margin: 0;
+}
 
 .search-input {
   background: rgba(255, 255, 255, 0.05);
@@ -91,6 +94,19 @@ body{
   width: calc(100% - 30px);
 }
 
+.chat-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  padding-bottom: 60px;
+}
+
+.chat-list::-webkit-scrollbar {
+  width: 0;
+}
+
+
 .chat-item {
   display: flex;
   padding: 15px;
@@ -99,8 +115,10 @@ body{
   transition: background 0.2s;
 }
 
-.chat-item:hover, .chat-item.active {
+.chat-item:hover,
+.chat-item.active {
   background: rgba(200, 155, 109, 0.1);
+  
 }
 
 .chat-avatar {
@@ -113,18 +131,38 @@ body{
   font-weight: bold;
 }
 
-.chat-meta { flex: 1; }
-.chat-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-.chat-name { font-weight: 600; color: #eee; }
-.chat-time { font-size: 11px; color: var(--text-dim); }
-.chat-preview { font-size: 13px; color: var(--text-dim); }
+.chat-meta {
+  flex: 1;
+}
+
+.chat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.chat-name {
+  font-weight: 600;
+  color: #eee;
+}
+
+.chat-time {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.chat-preview {
+  font-size: 13px;
+  color: var(--text-dim);
+}
 
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: rgba(0, 0, 0, 0.1);
+  min-height: 0;
+  background: var(--bg-main);
   overflow: hidden;
 }
 
@@ -145,31 +183,6 @@ body{
 
 .desktop-hidden {
   display: none !important;
-}
-
-@media (max-width: 768px) {
-  .app-shell {
-    flex-direction: row;
-    border-radius: 0;
-    border: none;
-  }
-
-  .sidebar {
-    width: 100%;
-    flex: 1;
-  }
-
-  .main-content {
-    width: 100%;
-    position: relative; 
-    height: 100%;
-    background: var(--bg-main);
-    z-index: 10;
-  }
-
-  .mobile-hidden {
-    display: none !important;
-  }
 }
 
 .nav-bottom {
@@ -256,7 +269,7 @@ body{
 
 .online-dot {
   position: absolute;
-  bottom: -2px; 
+  bottom: -2px;
   right: -2px;
   width: 14px;
   height: 14px;
@@ -285,4 +298,280 @@ body{
 
 .empty-chat-content p {
   font-size: 14px;
+}
+
+/* desktop-only helper */
+@media (min-width: 769px) {
+  .mobile-bottom-nav {
+    display: none;
+  }
+  .menu-container {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .menu-container {
+    display: flex;
+    position: relative;
+    align-items: center;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 40px;
+    right: 0;
+    background: #1a1411; /* Match your theme */
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    min-width: 150px;
+    z-index: 1000;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+  }
+
+  .menu-trigger {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .menu-item {
+    padding: 12px 15px;
+    color: #eee;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .menu-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .menu-item.logout {
+    color: #ff5e5e;
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex: 1;
+    position: relative;
+    padding-bottom: 70px;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 70px;
+    background: #1a1411;
+    border-top: 1px solid var(--glass-border);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 100;
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .mobile-nav-item.active {
+    color: var(--accent-gold);
+  }
+/* 
+  .mobile-nav-item.active .nav-badge-container {
+    background: rgba(200, 155, 109, 0.2);
+    padding: 4px 15px;
+    border-radius: 15px;
+  } */
+
+  /* Matching the WhatsApp "green" bubble style */
+  .badge {
+    background: #22c55e;
+    color: black;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 10px;
+    position: absolute;
+    top: -5px;
+    right: -5px;
+  }
+
+  .nav-badge-container {
+    position: relative;
+    font-size: 20px;
+  }
+
+  .mobile-avatar-icon img {
+    width: 41px;
+    height: 41px;
+    border-radius: 50%;
+    border: 1px solid var(--accent-gold);
+  }
+
+  .app-shell {
+    flex-direction: row;
+    border-radius: 0;
+    border: none;
+  }
+
+  .mobile-hidden {
+    display: none !important;
+  }
+}
+
+/* Dropdown Positioning */
+.menu-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #231c18; /* Match your sidebar-bg */
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+  z-index: 1000;
+  min-width: 150px;
+  margin-top: 10px;
+  padding: 5px 0;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.menu-item {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #eee;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.menu-item.logout {
+  color: #ff5e5e;
+  border-top: 1px solid var(--glass-border);
+}
+
+/* Specific adjustment for Profile Header to spread items */
+.profile-header {
+    display: flex;
+    justify-content: space-between; /* This pushes the menu to the right */
+    align-items: center;
+    width: 100%;
+}
+
+.header-left-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Add these new styles */
+
+.unread-badge {
+  background: #22c55e;
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.badge {
+  background: #22c55e;
+  color: black;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  z-index: 10;
+}
+
+.nav-badge-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nav-icon-container {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 25px;
+}
+
+.nav-icon {
+  font-size: 20px;
+  opacity: 0.6;
+  transition: 0.3s;
+}
+
+.nav-icon.active {
+  opacity: 1;
+  filter: drop-shadow(0 0 8px var(--accent-gold));
+}
+
+/* DESKTOP: Badge for nav-rail icon */
+.nav-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #22c55e;
+  color: #000;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  border: 2px solid rgba(26, 20, 18, 0.95);
 }

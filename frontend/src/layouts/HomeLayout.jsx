@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import api from "../api/axios";
 import socket from "../socket/socket";
 import "../styles/layout.css";
-import { LogOut } from "lucide-react";
+import { LogOut, MessagesSquare, User } from "lucide-react";
 import defaultAvatar from '../assets/avatar.jpg'
 
 const HomeLayout = () => {
@@ -15,6 +15,24 @@ const HomeLayout = () => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const currentUser = JSON.parse(localStorage.getItem("user"));
   const [search, setSearch] = useState("");
+  const [unreadCounts, setUnreadCounts] = useState({}); // Track unread per user
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  // Load unread counts from localStorage on mount
+  useEffect(() => {
+    const savedUnread = JSON.parse(localStorage.getItem("unreadCounts") || "{}");
+    setUnreadCounts(savedUnread);
+    const total = Object.values(savedUnread).reduce((sum, count) => sum + count, 0);
+    setTotalUnread(total);
+  }, []);
+
+  // Save unread counts to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("unreadCounts", JSON.stringify(unreadCounts));
+    const total = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+    setTotalUnread(total);
+  }, [unreadCounts]);
+
 
   useEffect(() => {
     api.get("/api/users").then((res) => setUsers(res.data));
@@ -31,6 +49,36 @@ const HomeLayout = () => {
       socket.off("online_users", handleOnlineUsers);
     };
   }, []);
+
+  useEffect(() => {
+    const handleReceiveMessage = (msg) => {
+      // Only count unread if it's for current user and NOT in the current chat
+      if (msg.receiver === currentUser?.id && msg.sender !== userId) {
+        setUnreadCounts(prev => {
+          const updated = { ...prev };
+          updated[msg.sender] = (updated[msg.sender] || 0) + 1;
+          return updated;
+        });
+      }
+    };
+
+    socket.on("receive_message", handleReceiveMessage);
+
+    return () => {
+      socket.off("receive_message", handleReceiveMessage);
+    };
+  }, [currentUser?.id, userId]);
+
+  // Clear unread count when user opens a chat
+  useEffect(() => {
+    if (userId) {
+      setUnreadCounts(prev => {
+        const updated = { ...prev };
+        delete updated[userId]; // Remove unread count for this user
+        return updated;
+      });
+    }
+  }, [userId]);
 
   const formatLastSeen = (date) => {
 
@@ -66,6 +114,7 @@ const HomeLayout = () => {
     socket.disconnect();
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("unreadCounts");
     navigate("/login");
   };
 
@@ -77,10 +126,17 @@ const HomeLayout = () => {
     <div className="app-container">
       <div className="app-shell">
 
-        <nav className="nav-rail">
+        <nav className="nav-rail desktop-only">
           <div className="nav-top">
-            <div className="nav-icon active" onClick={() => navigate("/")}>💬</div>
+            {/* WRAP IN CONTAINER FOR BADGE POSITIONING */}
+            <div className="nav-icon-container" onClick={() => navigate("/")}>
+              <div className="nav-icon active">💬</div>
+              {totalUnread > 0 && (
+                <span className="nav-badge">{totalUnread > 99 ? '99+' : totalUnread}</span>
+              )}
+            </div>
           </div>
+
           <div className="nav-bottom">
 
             <div className="nav-profile" onClick={() => navigate("/profile")}>
@@ -118,11 +174,12 @@ const HomeLayout = () => {
           <div className="chat-list">
             {filteredUsers.map((user) => {
               const isOnline = onlineUsers.includes(user._id);
+               const unreadCount = unreadCounts[user._id] || 0;
 
               return (
                 <div
                   key={user._id}
-                  className={`chat-item ${userId === user._id ? "active" : ""}`}
+                  className={`chat-item ${userId === user._id ? "active" : ""} ${unreadCount > 0 ? "has-unread" : ""}`}
                   onClick={() => navigate(`/chat/${user._id}`)}
                 >
                   <div className="chat-avatar">
@@ -144,21 +201,54 @@ const HomeLayout = () => {
 
                   <div className="chat-meta">
                     <div className="chat-row">
-                      <span className="chat-name">{user.username}</span>
+                      <span className={`chat-name ${unreadCount > 0 ? "unread-text" : ""}`}>{user.username}</span>
                       <span className="chat-time">
                         {isOnline ? "Online" : formatLastSeen(user.lastSeen)}
                       </span>
                     </div>
                   </div>
+                  {/* Show unread badge in sidebar */}
+                  {unreadCount > 0 && (
+                    <span className="unread-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                  )}
                 </div>
               );
             })}
           </div>
+
+
         </aside>
 
-       <main className={`main-content ${(!userId && !isProfile) ? "mobile-hidden" : ""}`}>
+        <main className={`main-content ${(!userId && !isProfile) ? "mobile-hidden" : ""}`}>
           <Outlet context={{ onlineUsers, users }} />
         </main>
+
+        {/* 2. Mobile Bottom Tab Bar (Visible only on mobile "/" route) */}
+        {!userId && (
+          <nav className="mobile-bottom-nav">
+            <div className={`mobile-nav-item ${!isProfile ? "active" : ""}`} onClick={() => navigate("/")}>
+              <div className="nav-badge-container">
+                {/* 💬 */}
+                <MessagesSquare size={23} />
+                {/* Show total unread badge */}
+                {totalUnread > 0 && (
+                  <span className="badge">{totalUnread > 99 ? '99+' : totalUnread}</span>
+                )}                </div>
+              {/* <span>Chats</span> */}
+            </div>
+            <div className={`mobile-nav-item ${isProfile ? "active" : ""}`} onClick={() => navigate("/profile")}>
+              <div className="mobile-avatar-icon">
+                {/* <img src={currentUser?.profilePic || defaultAvatar} alt="Me" /> */}
+                <User size={27} />
+              </div>
+              {/* <span>Profile</span> */}
+            </div>
+            <div className="mobile-nav-item" onClick={handleLogout}>
+              <LogOut size={24} />
+              {/* <span>Logout</span> */}
+            </div>
+          </nav>
+        )}
       </div>
     </div>
   );

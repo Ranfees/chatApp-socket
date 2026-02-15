@@ -2,7 +2,7 @@ import { useNavigate, useOutletContext, useParams } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import socket from "../socket/socket";
 import "../styles/chat.css";
-import { ArrowLeft, Phone, Video } from "lucide-react"; // Added icons
+import { ArrowLeft, Phone, Video, MoreVertical, User as UserIcon } from "lucide-react"; // Added icons
 import { decryptWith, encryptFor } from "../utils/crypto";
 import VideoCall from "./VideoCall"; // Make sure to create this file
 
@@ -28,6 +28,8 @@ const Chat = () => {
   const [typingUser, setTypingUser] = useState(false);
   const [displayMessages, setDisplayMessages] = useState([]);
 
+  const [showMenu, setShowMenu] = useState(false);
+
   const bottomRef = useRef();
 
   /* LOAD LOCAL CHAT */
@@ -38,6 +40,13 @@ const Chat = () => {
     );
     setMessages(unique);
     localStorage.setItem("chat_" + chatKey, JSON.stringify(unique));
+
+    // NEW: Mark this user's unread messages as read when entering chat
+    const unreadCounts = JSON.parse(localStorage.getItem("unreadCounts") || "{}");
+    if (unreadCounts[userId]) {
+      delete unreadCounts[userId];
+      localStorage.setItem("unreadCounts", JSON.stringify(unreadCounts));
+    }
   }, [userId, chatKey]);
 
   /* SOCKET LISTENERS (Messages & Calls) */
@@ -65,16 +74,16 @@ const Chat = () => {
       }
     };
 
-  const handleIncomingCall = ({ from, type, fromName }) => {
-  const accept = window.confirm(`Incoming ${type} call from ${fromName}. Accept?`);
-  if (accept) {
-    // This click interaction is crucial for audio to play
-    setCallType(type);
-    setIsCalling(true);
-  } else {
-    socket.emit("end-call", { to: from });
-  }
-};
+    const handleIncomingCall = ({ from, type, fromName }) => {
+      const accept = window.confirm(`Incoming ${type} call from ${fromName}. Accept?`);
+      if (accept) {
+        // This click interaction is crucial for audio to play
+        setCallType(type);
+        setIsCalling(true);
+      } else {
+        socket.emit("end-call", { to: from });
+      }
+    };
 
     socket.on("receive_message", handleReceive);
     socket.on("incoming-call", handleIncomingCall);
@@ -103,10 +112,10 @@ const Chat = () => {
     }
     setCallType(type);
     setIsCalling(true);
-    socket.emit("call-user", { 
-      to: userId, 
-      type, 
-      fromName: currentUser?.username || "Someone" 
+    socket.emit("call-user", {
+      to: userId,
+      type,
+      fromName: currentUser?.username || "Someone"
     });
   };
 
@@ -168,38 +177,60 @@ const Chat = () => {
     else setDisplayMessages([]);
   }, [messages]);
 
+  const handleLogout = () => {
+    socket.disconnect();
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("unreadCounts");
+    navigate("/login");
+  };
+
   return (
     <div className="chat-window">
-    <header className="chat-header">
-  <div className="header-left">
-    <button className="mobile-back-btn" onClick={() => navigate("/")}>
-      <ArrowLeft />
-    </button>
-    
-    <div className="chat-avatar">
-      {receiver?.profilePic ? (
-        <img src={receiver.profilePic} alt="" className="chat-avatar-img" />
-      ) : (
-        <span className="chat-avatar-letter">{receiver?.username?.charAt(0).toUpperCase()}</span>
-      )}
-    </div>
+      <header className="chat-header">
+        <div className="header-left">
+          <button className="mobile-back-btn" onClick={() => navigate("/")}>
+            <ArrowLeft />
+          </button>
 
-    <div className="header-info">
-      <h4>{receiver?.username ? receiver.username.charAt(0).toUpperCase() + receiver.username.slice(1) : "Chat"}</h4>
-      <span className="status-text">{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
-    </div>
-  </div>
+          <div className="chat-avatar">
+            {receiver?.profilePic ? (
+              <img src={receiver.profilePic} alt="" className="chat-avatar-img" />
+            ) : (
+              <span className="chat-avatar-letter">{receiver?.username?.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
 
-  {/* Ensure this div is OUTSIDE header-left but INSIDE chat-header */}
-  <div className="call-actions">
-    <button className="call-btn" onClick={() => startCall('audio')}>
-      <Phone size={20} />
-    </button>
-    <button className="call-btn" onClick={() => startCall('video')}>
-      <Video size={20} />
-    </button>
-  </div>
-</header>
+          <div className="header-info">
+            <h4>{receiver?.username ? receiver.username.charAt(0).toUpperCase() + receiver.username.slice(1) : "Chat"}</h4>
+            <span className="status-text">{typingUser ? "Typing..." : isOnline ? "Online" : "Offline"}</span>
+          </div>
+        </div>
+
+        {/* Ensure this div is OUTSIDE header-left but INSIDE chat-header */}
+        <div className="call-actions">
+          <button className="call-btn" onClick={() => startCall('audio')}>
+            <Phone size={20} />
+          </button>
+          <button className="call-btn" onClick={() => startCall('video')}>
+            <Video size={20} />
+          </button>
+
+          <div className="menu-container">
+            <button className="menu-trigger" onClick={() => setShowMenu(!showMenu)}>
+              <MoreVertical size={20} />
+            </button>
+            {showMenu && (
+              <div className="dropdown-menu">
+                <div className="menu-item" onClick={() => navigate("/")}>Chats</div>
+                <div className="menu-item" onClick={() => navigate("/profile")}>Profile</div>
+                <div className="menu-item logout" onClick={handleLogout}>Logout</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </header>
 
       <div className="chat-messages">
         {displayMessages.map((msg) => (
@@ -212,21 +243,21 @@ const Chat = () => {
       </div>
 
       <footer className="chat-input">
-        <input value={text} onChange={handleTyping} placeholder="Type a message…" />
+        <input value={text} onChange={handleTyping} placeholder="Type a message…" onKeyDown={(e) => e.key === "Enter" && sendMessage()} />
         <button onClick={sendMessage}>➤</button>
       </footer>
 
       {/* CALL OVERLAY */}
       {isCalling && (
-        <VideoCall 
-          myId={myId} 
-          remoteUserId={userId} 
-          type={callType} 
+        <VideoCall
+          myId={myId}
+          remoteUserId={userId}
+          type={callType}
           onEnd={() => {
             setIsCalling(false);
             setCallType(null);
             socket.emit("end-call", { to: userId });
-          }} 
+          }}
         />
       )}
     </div>
