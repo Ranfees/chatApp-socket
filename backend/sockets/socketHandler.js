@@ -70,19 +70,6 @@ module.exports = (io) => {
       io.emit("update_status", { messageId: id, status: "seen" });
     });
 
-    socket.on("call-user", ({ to, offer, fromName, type }) => {
-      // 'to' is the receiver's userId
-      io.to(to).emit("incoming-call", { from: socket.userId, offer, fromName, type });
-    });
-
-    socket.on("answer-call", ({ to, answer }) => {
-      io.to(to).emit("call-accepted", { answer });
-    });
-
-    socket.on("end-call", ({ to }) => {
-      io.to(to).emit("call-ended");
-    });
-
     socket.on("typing", (rid) => io.to(rid).emit("user_typing", userId));
     socket.on("stop_typing", (rid) => io.to(rid).emit("user_stop_typing", userId));
 
@@ -100,6 +87,35 @@ module.exports = (io) => {
         console.error("Last seen update error:", err);
       }
     });
+
+    // CALL SIGNALING
+
+socket.on("call-user", ({ to, offer, type }) => {
+  io.to(to).emit("incoming-call", {
+    from: userId,
+    offer,
+    type,
+  });
+});
+
+socket.on("answer-call", ({ to, answer }) => {
+  io.to(to).emit("call-answered", {
+    from: userId,
+    answer,
+  });
+});
+
+socket.on("ice-candidate", ({ to, candidate }) => {
+  io.to(to).emit("ice-candidate", {
+    from: userId,
+    candidate,
+  });
+});
+
+socket.on("end-call", ({ to }) => {
+  io.to(to).emit("call-ended");
+});
+
 
   });
 };

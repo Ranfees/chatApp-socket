@@ -8,12 +8,13 @@ import defaultAvatar from '../assets/avatar.jpg'
 
 const HomeLayout = () => {
   const location = useLocation();
-  const isProfile = location.pathname === "/profile";
   const navigate = useNavigate();
   const { userId } = useParams();
+
+  const isProfile = location.pathname === "/profile";
+
   const [users, setUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const currentUser = JSON.parse(localStorage.getItem("user"));
   const [search, setSearch] = useState("");
   const [unreadCounts, setUnreadCounts] = useState({}); // Track unread per user
   const [totalUnread, setTotalUnread] = useState(0);
@@ -34,10 +35,18 @@ const HomeLayout = () => {
   }, [unreadCounts]);
 
 
+  const currentUser = JSON.parse(localStorage.getItem("user"));
+
+  /* ===========================
+        FETCH USERS
+  ============================ */
   useEffect(() => {
     api.get("/api/users").then((res) => setUsers(res.data));
   }, []);
 
+  /* ===========================
+        ONLINE USERS LISTENER
+  ============================ */
   useEffect(() => {
     const handleOnlineUsers = (users) => {
       setOnlineUsers(users);
@@ -80,8 +89,30 @@ const HomeLayout = () => {
     }
   }, [userId]);
 
-  const formatLastSeen = (date) => {
 
+  /* ===========================
+        GLOBAL INCOMING CALL
+        (Fixes no ringing issue)
+  ============================ */
+  useEffect(() => {
+    const handleIncomingCallGlobal = ({ from }) => {
+      // If user is not already in that chat, navigate
+      if (location.pathname !== `/chat/${from}`) {
+        navigate(`/chat/${from}`);
+      }
+    };
+
+    socket.on("incoming-call", handleIncomingCallGlobal);
+
+    return () => {
+      socket.off("incoming-call", handleIncomingCallGlobal);
+    };
+  }, [location.pathname, navigate]);
+
+  /* ===========================
+        FORMAT LAST SEEN
+  ============================ */
+  const formatLastSeen = (date) => {
     if (!date) return "Offline";
 
     const now = new Date();
@@ -96,7 +127,8 @@ const HomeLayout = () => {
     const yesterday = new Date();
     yesterday.setDate(now.getDate() - 1);
 
-    const isYesterday = yesterday.toDateString() === last.toDateString();
+    const isYesterday =
+      yesterday.toDateString() === last.toDateString();
 
     if (isToday) {
       return `Last seen ${last.toLocaleTimeString([], {
@@ -110,6 +142,9 @@ const HomeLayout = () => {
     return `Last seen ${last.toLocaleDateString()}`;
   };
 
+  /* ===========================
+        LOGOUT
+  ============================ */
   const handleLogout = () => {
     socket.disconnect();
     localStorage.removeItem("token");
@@ -118,10 +153,16 @@ const HomeLayout = () => {
     navigate("/login");
   };
 
+  /* ===========================
+        FILTER USERS
+  ============================ */
   const filteredUsers = users.filter((user) =>
     user.username.toLowerCase().includes(search.toLowerCase())
   );
 
+  /* ===========================
+              UI
+  ============================ */
   return (
     <div className="app-container">
       <div className="app-shell">
@@ -137,27 +178,36 @@ const HomeLayout = () => {
             </div>
           </div>
 
-          <div className="nav-bottom">
+            <div className="nav-bottom">
+              <div
+                className="nav-profile"
+                onClick={() => navigate("/profile")}
+              >
+                <img
+                  src={
+                    currentUser?.profilePic
+                      ? currentUser.profilePic
+                      : defaultAvatar
+                  }
+                  alt="Profile"
+                  className="nav-profile-img"
+                />
+              </div>
 
-            <div className="nav-profile" onClick={() => navigate("/profile")}>
-              <img
-                src={
-                  currentUser?.profilePic
-                    ? `${currentUser.profilePic}`
-                    : defaultAvatar
-                }
-                alt="Profile"
-                className="nav-profile-img"
-              />
+              <div
+                className="nav-avatar-small logout-btn"
+                onClick={handleLogout}
+              >
+                <LogOut size={18} />
+              </div>
             </div>
-
-            <div className="nav-avatar-small logout-btn" onClick={handleLogout}>
-              <LogOut size={18} />
-            </div>
-          </div>
         </nav>
 
-        <aside className={`sidebar ${(userId || isProfile) ? "mobile-hidden" : ""} ${isProfile ? "desktop-hidden" : ""}`}>
+        {/* SIDEBAR */}
+        <aside
+          className={`sidebar ${userId || isProfile ? "mobile-hidden" : ""
+            } ${isProfile ? "desktop-hidden" : ""}`}
+        >
           <header className="sidebar-header">
             <h1>Chats</h1>
           </header>
@@ -174,7 +224,7 @@ const HomeLayout = () => {
           <div className="chat-list">
             {filteredUsers.map((user) => {
               const isOnline = onlineUsers.includes(user._id);
-               const unreadCount = unreadCounts[user._id] || 0;
+              const unreadCount = unreadCounts[user._id] || 0;
 
               return (
                 <div
@@ -195,15 +245,18 @@ const HomeLayout = () => {
                       </span>
                     )}
 
-                    {isOnline && <span className="online-dot"></span>}
+                    {isOnline && (
+                      <span className="online-dot"></span>
+                    )}
                   </div>
-
 
                   <div className="chat-meta">
                     <div className="chat-row">
                       <span className={`chat-name ${unreadCount > 0 ? "unread-text" : ""}`}>{user.username}</span>
                       <span className="chat-time">
-                        {isOnline ? "Online" : formatLastSeen(user.lastSeen)}
+                        {isOnline
+                          ? "Online"
+                          : formatLastSeen(user.lastSeen)}
                       </span>
                     </div>
                   </div>

@@ -4,16 +4,11 @@ import socket from "../socket/socket";
 import "../styles/chat.css";
 import { ArrowLeft, Phone, Video, MoreVertical, User as UserIcon } from "lucide-react"; // Added icons
 import { decryptWith, encryptFor } from "../utils/crypto";
-import VideoCall from "./VideoCall"; // Make sure to create this file
 
 const Chat = () => {
   const navigate = useNavigate();
   const { userId } = useParams();
   const { users, onlineUsers } = useOutletContext();
-
-  // Call States
-  const [isCalling, setIsCalling] = useState(false);
-  const [callType, setCallType] = useState(null);
 
   const userString = localStorage.getItem("user");
   const currentUser = JSON.parse(userString);
@@ -29,8 +24,21 @@ const Chat = () => {
   const [displayMessages, setDisplayMessages] = useState([]);
 
   const [showMenu, setShowMenu] = useState(false);
+  
+  // CALL STATES
+  const [isCalling, setIsCalling] = useState(false);
+  const [callType, setCallType] = useState(null);
 
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const peerRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const pendingCandidates = useRef([]);
   const bottomRef = useRef();
+
+  /* ===========================
+        WEBRTC CORE
+  ============================ */
 
   /* LOAD LOCAL CHAT */
   useEffect(() => {
@@ -49,22 +57,149 @@ const Chat = () => {
     }
   }, [userId, chatKey]);
 
-  /* SOCKET LISTENERS (Messages & Calls) */
-  useEffect(() => {
-    const handleReceive = (msg) => {
-      const otherPartyId = msg.sender === myId ? msg.receiver : msg.sender;
-      const targetChatKey = [myId, otherPartyId].sort().join("_");
-      const isCurrentChat = (msg.sender === userId || msg.receiver === userId);
 
-      const localData = JSON.parse(localStorage.getItem("chat_" + targetChatKey) || "[]");
-      if (!localData.find(m => m._id === msg._id)) {
+  const createPeer = (targetId) => {
+    // const peer = new RTCPeerConnection({
+    //   iceServers: [
+    //     { urls: "stun:stun.l.google.com:19302" },
+    //     { urls: "stun:stun1.l.google.com:19302" },
+    //     { urls: "stun:stun2.l.google.com:19302" },
+    //   ],
+    // });
+
+    const peer = new RTCPeerConnection({
+  iceServers: [
+    {
+      urls: "stun:stun.l.google.com:19302",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+  ],
+});
+
+    // Send ICE to other peer
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit("ice-candidate", {
+          to: targetId,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    // Remote track handler (stable version)
+    peer.ontrack = (event) => {
+      if (!remoteVideoRef.current) return;
+
+      const remoteStream = new MediaStream();
+      event.streams[0].getTracks().forEach((track) => {
+        remoteStream.addTrack(track);
+      });
+
+      remoteVideoRef.current.srcObject = remoteStream;
+    };
+
+    return peer;
+  };
+
+  /* ===========================
+        START CALL
+  ============================ */
+
+  const startCall = async (type) => {
+    try {
+      setCallType(type);
+      setIsCalling(true);
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: type === "video",
+        audio: true,
+      });
+
+      localStreamRef.current = stream;
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      const peer = createPeer(userId);
+      peerRef.current = peer;
+
+      stream.getTracks().forEach((track) => {
+        peer.addTrack(track, stream);
+      });
+
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+
+      socket.emit("call-user", {
+        to: userId,
+        offer,
+        type,
+      });
+    } catch (err) {
+      console.error("Call start error:", err);
+    }
+  };
+
+  /* ===========================
+        END CALL
+  ============================ */
+
+  const endCall = () => {
+    setIsCalling(false);
+    setCallType(null);
+
+    peerRef.current?.close();
+    peerRef.current = null;
+
+    localStreamRef.current?.getTracks().forEach((track) => track.stop());
+    localStreamRef.current = null;
+
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+
+    socket.emit("end-call", { to: userId });
+  };
+
+  /* ===========================
+        SOCKET LISTENERS
+  ============================ */
+
+  useEffect(() => {
+    /* ------------------ RECEIVE MESSAGE ------------------ */
+    const handleReceive = (msg) => {
+      const otherPartyId =
+        msg.sender === myId ? msg.receiver : msg.sender;
+
+      const targetChatKey = [myId, otherPartyId].sort().join("_");
+      const isCurrentChat =
+        msg.sender === userId || msg.receiver === userId;
+
+      const localData = JSON.parse(
+        localStorage.getItem("chat_" + targetChatKey) || "[]"
+      );
+
+      if (!localData.find((m) => m._id === msg._id)) {
         const updatedLocal = [...localData, msg];
-        localStorage.setItem("chat_" + targetChatKey, JSON.stringify(updatedLocal));
+        localStorage.setItem(
+          "chat_" + targetChatKey,
+          JSON.stringify(updatedLocal)
+        );
       }
 
       if (isCurrentChat) {
-        setMessages(prev => {
-          if (prev.find(m => m._id === msg._id)) return prev;
+        setMessages((prev) => {
+          if (prev.find((m) => m._id === msg._id)) return prev;
           return [...prev, msg];
         });
       }
@@ -73,29 +208,92 @@ const Chat = () => {
         socket.emit("message_stored_locally", msg._id);
       }
     };
+  
 
-    const handleIncomingCall = ({ from, type, fromName }) => {
-      const accept = window.confirm(`Incoming ${type} call from ${fromName}. Accept?`);
-      if (accept) {
-        // This click interaction is crucial for audio to play
-        setCallType(type);
-        setIsCalling(true);
-      } else {
-        socket.emit("end-call", { to: from });
+    /* ------------------ INCOMING CALL ------------------ */
+    const handleIncomingCall = async ({ from, offer, type }) => {
+      setCallType(type);
+      setIsCalling(true);
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: type === "video",
+        audio: true,
+      });
+
+      localStreamRef.current = stream;
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      const peer = createPeer(from);
+      peerRef.current = peer;
+
+      stream.getTracks().forEach((track) => {
+        peer.addTrack(track, stream);
+      });
+
+      await peer.setRemoteDescription(
+        new RTCSessionDescription(offer)
+      );
+
+      // 🔥 Apply buffered ICE
+      for (let c of pendingCandidates.current) {
+        await peer.addIceCandidate(new RTCIceCandidate(c));
+      }
+      pendingCandidates.current = [];
+
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+
+      socket.emit("answer-call", {
+        to: from,
+        answer,
+      });
+    };
+
+    /* ------------------ CALL ANSWERED ------------------ */
+    const handleCallAnswered = async ({ answer }) => {
+      await peerRef.current?.setRemoteDescription(
+        new RTCSessionDescription(answer)
+      );
+
+      // 🔥 Apply buffered ICE
+      for (let c of pendingCandidates.current) {
+        await peerRef.current.addIceCandidate(
+          new RTCIceCandidate(c)
+        );
+      }
+      pendingCandidates.current = [];
+    };
+
+    /* ------------------ ICE CANDIDATE ------------------ */
+    const handleIce = async ({ candidate }) => {
+      try {
+        if (peerRef.current?.remoteDescription) {
+          await peerRef.current.addIceCandidate(
+            new RTCIceCandidate(candidate)
+          );
+        } else {
+          pendingCandidates.current.push(candidate);
+        }
+      } catch (err) {
+        console.error("ICE error:", err);
       }
     };
 
     socket.on("receive_message", handleReceive);
     socket.on("incoming-call", handleIncomingCall);
-    socket.on("call-ended", () => {
-      setIsCalling(false);
-      setCallType(null);
-    });
+    socket.on("call-answered", handleCallAnswered);
+    socket.on("ice-candidate", handleIce);
+    socket.on("call-ended", endCall);
 
     return () => {
       socket.off("receive_message", handleReceive);
       socket.off("incoming-call", handleIncomingCall);
-      socket.off("call-ended");
+      socket.off("call-answered", handleCallAnswered);
+      socket.off("ice-candidate", handleIce);
+      socket.off("call-ended", endCall);
     };
   }, [userId, myId]);
 
@@ -104,28 +302,17 @@ const Chat = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUser]);
 
-  /* CALL FUNCTIONS */
-  const startCall = (type) => {
-    if (!isOnline) {
-      alert("User is offline and cannot be called.");
-      return;
-    }
-    setCallType(type);
-    setIsCalling(true);
-    socket.emit("call-user", {
-      to: userId,
-      type,
-      fromName: currentUser?.username || "Someone"
-    });
-  };
+  /* ===========================
+        SEND MESSAGE
+  ============================ */
 
-  /* MESSAGE FUNCTIONS */
   const sendMessage = async () => {
     if (!text.trim()) return;
+
     const myPubKey = currentUser?.publicKey;
 
     if (!receiver?.publicKey || !myPubKey) {
-      alert("Security keys missing. Cannot send encrypted message.");
+      alert("Security keys missing.");
       return;
     }
 
@@ -136,46 +323,18 @@ const Chat = () => {
       socket.emit("send_message", {
         receiverId: userId,
         encReceiver,
-        encSender
+        encSender,
       });
 
-      socket.emit("stop_typing", userId);
       setText("");
     } catch (err) {
       console.error("Encryption failed", err);
     }
   };
 
-  const handleTyping = (e) => {
-    setText(e.target.value);
-    socket.emit("typing", userId);
-  };
-
-  /* DECRYPTION LOGIC */
-  useEffect(() => {
-    const decryptAll = async () => {
-      const myPrivKey = localStorage.getItem("privateKey");
-      if (!userString || !myPrivKey) return;
-
-      const processed = await Promise.all(messages.map(async (msg) => {
-        try {
-          let textToDecrypt = (msg.sender === myId)
-            ? (msg.encryptedForSender || msg.encryptedText)
-            : (msg.encryptedForReceiver || msg.encryptedText);
-
-          if (!textToDecrypt) return { ...msg, clearText: "[Empty]" };
-          const clearText = await decryptWith(textToDecrypt, myPrivKey);
-          return { ...msg, clearText };
-        } catch (err) {
-          return { ...msg, clearText: "[Decryption Failed]" };
-        }
-      }));
-      setDisplayMessages(processed);
-    };
-
-    if (messages.length > 0) decryptAll();
-    else setDisplayMessages([]);
-  }, [messages]);
+  /* ===========================
+        UI
+  ============================ */
 
   const handleLogout = () => {
     socket.disconnect();
@@ -232,34 +391,37 @@ const Chat = () => {
 
       </header>
 
+       {isCalling && (
+        <div className="call-container">
+          <video ref={localVideoRef} autoPlay muted playsInline />
+          <video ref={remoteVideoRef} autoPlay playsInline />
+          <button onClick={endCall}>End Call</button>
+        </div>
+      )}
+
       <div className="chat-messages">
         {displayMessages.map((msg) => (
-          <div key={msg._id || Math.random()} className={`chat-bubble ${msg.sender === myId ? "me" : "other"}`}>
-            <div className="message-text">{msg.clearText || "..."}</div>
-            {msg.sender === myId && <div className="message-status">{msg.status === "seen" || msg.status === "delivered" ? " ✓✓" : " ✓"}</div>}
+          <div
+            key={msg._id}
+            className={`chat-bubble ${
+              msg.sender === myId ? "me" : "other"
+            }`}
+          >
+            {msg.clearText || "..."}
           </div>
         ))}
         <div ref={bottomRef} />
       </div>
 
       <footer className="chat-input">
-        <input value={text} onChange={handleTyping} placeholder="Type a message…" onKeyDown={(e) => e.key === "Enter" && sendMessage()} />
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Type message..."
+          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+        />
         <button onClick={sendMessage}>➤</button>
       </footer>
-
-      {/* CALL OVERLAY */}
-      {isCalling && (
-        <VideoCall
-          myId={myId}
-          remoteUserId={userId}
-          type={callType}
-          onEnd={() => {
-            setIsCalling(false);
-            setCallType(null);
-            socket.emit("end-call", { to: userId });
-          }}
-        />
-      )}
     </div>
   );
 };
