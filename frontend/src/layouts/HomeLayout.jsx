@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import api from "../api/axios";
 import socket from "../socket/socket";
 import "../styles/layout.css";
-import { LogOut } from "lucide-react";
-import defaultAvatar from "../assets/avatar.jpg";
+import { LogOut, MessagesSquare, User } from "lucide-react";
+import defaultAvatar from '../assets/avatar.jpg'
 
 const HomeLayout = () => {
   const location = useLocation();
@@ -16,19 +16,28 @@ const HomeLayout = () => {
   const [users, setUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [search, setSearch] = useState("");
+  const [unreadCounts, setUnreadCounts] = useState({});
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  useEffect(() => {
+    const savedUnread = JSON.parse(localStorage.getItem("unreadCounts") || "{}");
+    setUnreadCounts(savedUnread);
+    const total = Object.values(savedUnread).reduce((sum, count) => sum + count, 0);
+    setTotalUnread(total);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("unreadCounts", JSON.stringify(unreadCounts));
+    const total = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+    setTotalUnread(total);
+  }, [unreadCounts]);
 
   const currentUser = JSON.parse(localStorage.getItem("user"));
 
-  /* ===========================
-        FETCH USERS
-  ============================ */
   useEffect(() => {
     api.get("/api/users").then((res) => setUsers(res.data));
   }, []);
 
-  /* ===========================
-        ONLINE USERS LISTENER
-  ============================ */
   useEffect(() => {
     const handleOnlineUsers = (users) => {
       setOnlineUsers(users);
@@ -41,13 +50,57 @@ const HomeLayout = () => {
     };
   }, []);
 
-  /* ===========================
-        GLOBAL INCOMING CALL
-        (Fixes no ringing issue)
-  ============================ */
+  useEffect(() => {
+    const handleReceiveMessage = async (msg) => {
+      const myId = currentUser?.id;
+      if (!myId) return;
+
+      const otherPartyId =
+        msg.sender === myId ? msg.receiver : msg.sender;
+
+      const chatKey = [myId, otherPartyId].sort().join("_");
+
+      const localData = JSON.parse(
+        localStorage.getItem("chat_" + chatKey) || "[]"
+      );
+
+      if (!localData.find((m) => m._id === msg._id)) {
+        const updated = [...localData, msg];
+        localStorage.setItem("chat_" + chatKey, JSON.stringify(updated));
+        window.dispatchEvent(new Event("chat_updated"));
+      }
+
+      if (msg.receiver === myId && msg.sender !== userId) {
+        setUnreadCounts(prev => ({
+          ...prev,
+          [msg.sender]: (prev[msg.sender] || 0) + 1
+        }));
+      }
+
+      if (msg.receiver === myId) {
+        socket.emit("message_stored_locally", msg._id);
+      }
+    };
+
+    socket.on("receive_message", handleReceiveMessage);
+
+    return () => {
+      socket.off("receive_message", handleReceiveMessage);
+    };
+  }, [currentUser?.id, userId]);
+
+  useEffect(() => {
+    if (userId) {
+      setUnreadCounts(prev => {
+        const updated = { ...prev };
+        delete updated[userId];
+        return updated;
+      });
+    }
+  }, [userId]);
+
   useEffect(() => {
     const handleIncomingCallGlobal = ({ from }) => {
-      // If user is not already in that chat, navigate
       if (location.pathname !== `/chat/${from}`) {
         navigate(`/chat/${from}`);
       }
@@ -60,9 +113,6 @@ const HomeLayout = () => {
     };
   }, [location.pathname, navigate]);
 
-  /* ===========================
-        FORMAT LAST SEEN
-  ============================ */
   const formatLastSeen = (date) => {
     if (!date) return "Offline";
 
@@ -93,38 +143,29 @@ const HomeLayout = () => {
     return `Last seen ${last.toLocaleDateString()}`;
   };
 
-  /* ===========================
-        LOGOUT
-  ============================ */
   const handleLogout = () => {
     socket.disconnect();
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("unreadCounts");
     navigate("/login");
   };
 
-  /* ===========================
-        FILTER USERS
-  ============================ */
   const filteredUsers = users.filter((user) =>
     user.username.toLowerCase().includes(search.toLowerCase())
   );
 
-  /* ===========================
-              UI
-  ============================ */
   return (
     <div className="app-container">
       <div className="app-shell">
 
-        {/* NAV RAIL */}
-        <nav className="nav-rail">
+        <nav className="nav-rail desktop-only">
           <div className="nav-top">
-            <div
-              className="nav-icon active"
-              onClick={() => navigate("/")}
-            >
-              💬
+            <div className="nav-icon-container" onClick={() => navigate("/")}>
+              <div className="nav-icon active">💬</div>
+              {totalUnread > 0 && (
+                <span className="nav-badge">{totalUnread > 99 ? '99+' : totalUnread}</span>
+              )}
             </div>
           </div>
 
@@ -153,11 +194,9 @@ const HomeLayout = () => {
           </div>
         </nav>
 
-        {/* SIDEBAR */}
         <aside
-          className={`sidebar ${
-            userId || isProfile ? "mobile-hidden" : ""
-          } ${isProfile ? "desktop-hidden" : ""}`}
+          className={`sidebar ${userId || isProfile ? "mobile-hidden" : ""
+            } ${isProfile ? "desktop-hidden" : ""}`}
         >
           <header className="sidebar-header">
             <h1>Chats</h1>
@@ -175,13 +214,12 @@ const HomeLayout = () => {
           <div className="chat-list">
             {filteredUsers.map((user) => {
               const isOnline = onlineUsers.includes(user._id);
+              const unreadCount = unreadCounts[user._id] || 0;
 
               return (
                 <div
                   key={user._id}
-                  className={`chat-item ${
-                    userId === user._id ? "active" : ""
-                  }`}
+                  className={`chat-item ${userId === user._id ? "active" : ""} ${unreadCount > 0 ? "has-unread" : ""}`}
                   onClick={() => navigate(`/chat/${user._id}`)}
                 >
                   <div className="chat-avatar">
@@ -204,9 +242,7 @@ const HomeLayout = () => {
 
                   <div className="chat-meta">
                     <div className="chat-row">
-                      <span className="chat-name">
-                        {user.username}
-                      </span>
+                      <span className={`chat-name ${unreadCount > 0 ? "unread-text" : ""}`}>{user.username}</span>
                       <span className="chat-time">
                         {isOnline
                           ? "Online"
@@ -214,21 +250,41 @@ const HomeLayout = () => {
                       </span>
                     </div>
                   </div>
+                  {unreadCount > 0 && (
+                    <span className="unread-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                  )}
                 </div>
               );
             })}
           </div>
+
+
         </aside>
 
-        {/* MAIN CONTENT */}
-        <main
-          className={`main-content ${
-            !userId && !isProfile ? "mobile-hidden" : ""
-          }`}
-        >
+        <main className={`main-content ${(!userId && !isProfile) ? "mobile-hidden" : ""}`}>
           <Outlet context={{ onlineUsers, users }} />
         </main>
 
+        {!userId && (
+          <nav className="mobile-bottom-nav">
+            <div className={`mobile-nav-item ${!isProfile ? "active" : ""}`} onClick={() => navigate("/")}>
+              <div className="nav-badge-container">
+                {/* 💬 */}
+                <MessagesSquare size={23} />
+                {totalUnread > 0 && (
+                  <span className="badge">{totalUnread > 99 ? '99+' : totalUnread}</span>
+                )}                </div>
+            </div>
+            <div className={`mobile-nav-item ${isProfile ? "active" : ""}`} onClick={() => navigate("/profile")}>
+              <div className="mobile-avatar-icon">
+                <User size={27} />
+              </div>
+            </div>
+            <div className="mobile-nav-item" onClick={handleLogout}>
+              <LogOut size={24} />
+            </div>
+          </nav>
+        )}
       </div>
     </div>
   );

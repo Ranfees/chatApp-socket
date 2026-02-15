@@ -52,7 +52,6 @@ router.put("/update-profile-pic", protect, async (req, res) => {
 
     const file = req.files.profilePic;
 
-    // Use your helper
     const uploadResult = await fileUploadToCloudinary(file);
 
     if (!uploadResult) {

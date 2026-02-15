@@ -4,23 +4,31 @@
   width: 100%;
   background: var(--bg-main); 
   color: #eee;
+  overflow: hidden;
 }
 
 .profile-details-sidebar {
-  width: 35%;
-  min-width: 320px;
+  width: 350px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--glass-border);
   padding: 30px;
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(20px);
+  z-index: 2;
+}
+
+.profile-header{
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 30px;
 }
 
 .profile-header-title {
   font-size: 22px;
+  margin: 0;
   color: #fff;
-  margin-bottom: 40px;
   font-weight: 600;
 }
 
@@ -153,9 +161,16 @@
   border-radius: 50%;
 }
 
+.edit-group {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+}
+
 .edit-input {
+  flex: 1;
   background: #1a1a1a;
-  border: none;
+  border: 1px solid var(--accent-gold);
   color: #fff;
   padding: 6px;
   border-radius: 4px;
@@ -174,4 +189,18 @@
 
 .save-btn:hover {
   opacity: 0.8;
+}
+
+
+@media (max-width: 768px) {
+  .profile-details-sidebar {
+    width: 100%;
+    height: calc(100dvh - 70px);
+    padding-bottom: 80px;
+    border-right: none;
+  }
+  
+  .mobile-back-btn {
+    display: block;
+  }
 }

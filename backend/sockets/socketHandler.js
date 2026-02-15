@@ -88,8 +88,6 @@ module.exports = (io) => {
       }
     });
 
-    // CALL SIGNALING
-
 socket.on("call-user", ({ to, offer, type }) => {
   io.to(to).emit("incoming-call", {
     from: userId,
