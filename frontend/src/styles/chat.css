@@ -379,6 +379,165 @@
   overflow: hidden;
 }
 
+/* Call Container Base */
+.call-container {
+  position: fixed;
+  inset: 0;
+  background: #0b0908;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure the container takes the absolute full screen */
+.call-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw; /* Force full viewport width */
+  height: 100vh; /* Force full viewport height */
+  background: #0b0908;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Update the background blur to fill the entire screen */
+.audio-bg-blur {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(60px) brightness(0.3); /* Increased blur for desktop */
+  z-index: 1;
+  transform: scale(1.1); /* Prevents white edges from blur */
+}
+
+/* Ensure the content area isn't restricted by a max-width from a parent */
+.audio-call-ui {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.audio-call-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+
+.caller-avatar-wrapper {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin: 0 auto 30px;
+}
+
+.audio-avatar, .audio-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid rgba(200, 155, 109, 0.3);
+}
+
+.audio-avatar-placeholder {
+  background: #2d2019;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c89b6d;
+}
+
+.caller-name {
+  color: white;
+  font-size: 28px;
+  margin-bottom: 8px;
+  text-transform: capitalize;
+}
+
+.call-status {
+  color: #9f948d;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+
+/* Animation for the "Calling" effect */
+.pulse-waves {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid #c89b6d;
+  animation: audio-pulse 2s infinite;
+  z-index: -1;
+}
+
+@keyframes audio-pulse {
+  0% { width: 100%; height: 100%; opacity: 0.6; }
+  100% { width: 200%; height: 200%; opacity: 0; }
+}
+
+/* Control Bar */
+.call-controls-bar {
+  position: absolute;
+  bottom: 60px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+}
+
+.end-call-btn-round {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+  transition: transform 0.2s;
+}
+
+.end-call-btn-round:active {
+  transform: scale(0.9);
+}
+
+/* Video Mode Overrides */
+.video-mode .remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-mode .local-video {
+  position: absolute;
+  top: 40px;
+  right: 20px;
+  width: 120px;
+  height: 180px;
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.2);
+  z-index: 5;
+  background: #000;
+  object-fit: cover;
+}
+
 .menu-item {
   padding: 12px 16px;
   color: #eee;
