@@ -4,9 +4,11 @@ const Message = require("../models/Message");
 const User = require("../models/User");
 
 const onlineUsers = new Map();
+const activeCalls = new Map();
 
 module.exports = (io) => {
 
+  /* ================= AUTH ================= */
   io.use((socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
@@ -18,18 +20,23 @@ module.exports = (io) => {
     }
   });
 
+  /* ================= CONNECTION ================= */
   io.on("connection", async (socket) => {
     const userId = socket.userId.toString();
-    socket.join(userId);
 
+    socket.join(userId);
     onlineUsers.set(userId, socket.id);
+
     io.emit("online_users", Array.from(onlineUsers.keys()));
 
+    /* ===== SEND PENDING MESSAGES ===== */
     const pending = await Message.find({ receiver: userId });
 
     for (let msg of pending) {
       io.to(userId).emit("receive_message", msg);
     }
+
+    /* ================= MESSAGES ================= */
 
     socket.on("send_message", async ({ receiverId, encReceiver, encSender }) => {
       try {
@@ -44,8 +51,8 @@ module.exports = (io) => {
         if (onlineUsers.has(receiverId)) {
           io.to(receiverId).emit("receive_message", message);
         }
-        io.to(userId).emit("receive_message", message);
 
+        io.to(userId).emit("receive_message", message);
       } catch (err) {
         console.error("Message send error:", err);
       }
@@ -73,11 +80,61 @@ module.exports = (io) => {
     socket.on("typing", (rid) => io.to(rid).emit("user_typing", userId));
     socket.on("stop_typing", (rid) => io.to(rid).emit("user_stop_typing", userId));
 
+    /* ================= CALLING ================= */
+
+    socket.on("call-user", ({ to, offer, type }) => {
+
+      if (activeCalls.has(to)) {
+        io.to(userId).emit("call-busy");
+        return;
+      }
+
+      if (activeCalls.has(userId)) return;
+
+      activeCalls.set(userId, to);
+      activeCalls.set(to, userId);
+
+      io.to(to).emit("incoming-call", {
+        from: userId,
+        offer,
+        type,
+      });
+    });
+
+    socket.on("answer-call", ({ to, answer }) => {
+      io.to(to).emit("call-answered", {
+        from: userId,
+        answer,
+      });
+    });
+
+    socket.on("ice-candidate", ({ to, candidate }) => {
+      io.to(to).emit("ice-candidate", {
+        from: userId,
+        candidate,
+      });
+    });
+
+    socket.on("end-call", ({ to }) => {
+      activeCalls.delete(userId);
+      activeCalls.delete(to);
+
+      io.to(to).emit("call-ended");
+    });
+
+    /* ================= DISCONNECT ================= */
+
     socket.on("disconnect", async () => {
-      console.log(" Disconnected:", userId);
 
       onlineUsers.delete(userId);
       io.emit("online_users", Array.from(onlineUsers.keys()));
+
+      const partner = activeCalls.get(userId);
+      if (partner) {
+        activeCalls.delete(userId);
+        activeCalls.delete(partner);
+        io.to(partner).emit("call-ended");
+      }
 
       try {
         await User.findByIdAndUpdate(userId, {
@@ -87,33 +144,5 @@ module.exports = (io) => {
         console.error("Last seen update error:", err);
       }
     });
-
-socket.on("call-user", ({ to, offer, type }) => {
-  io.to(to).emit("incoming-call", {
-    from: userId,
-    offer,
-    type,
-  });
-});
-
-socket.on("answer-call", ({ to, answer }) => {
-  io.to(to).emit("call-answered", {
-    from: userId,
-    answer,
-  });
-});
-
-socket.on("ice-candidate", ({ to, candidate }) => {
-  io.to(to).emit("ice-candidate", {
-    from: userId,
-    candidate,
-  });
-});
-
-socket.on("end-call", ({ to }) => {
-  io.to(to).emit("call-ended");
-});
-
-
   });
 };
