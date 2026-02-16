@@ -77,20 +77,38 @@ module.exports = (io) => {
       io.emit("update_status", { messageId: id, status: "seen" });
     });
 
-    socket.on("typing", (rid) => io.to(rid).emit("user_typing", userId));
-    socket.on("stop_typing", (rid) => io.to(rid).emit("user_stop_typing", userId));
+    socket.on("typing", (rid) =>
+      io.to(rid).emit("user_typing", userId)
+    );
+
+    socket.on("stop_typing", (rid) =>
+      io.to(rid).emit("user_stop_typing", userId)
+    );
 
     /* ================= CALLING ================= */
 
+    // 🔥 START CALL
     socket.on("call-user", ({ to, offer, type }) => {
 
+      // user offline
+      if (!onlineUsers.has(to)) {
+        io.to(userId).emit("user-offline");
+        return;
+      }
+
+      // caller already in call
+      if (activeCalls.has(userId)) {
+        io.to(userId).emit("call-busy");
+        return;
+      }
+
+      // receiver busy
       if (activeCalls.has(to)) {
         io.to(userId).emit("call-busy");
         return;
       }
 
-      if (activeCalls.has(userId)) return;
-
+      // mark both users busy
       activeCalls.set(userId, to);
       activeCalls.set(to, userId);
 
@@ -101,6 +119,7 @@ module.exports = (io) => {
       });
     });
 
+    // 🔥 ANSWER CALL
     socket.on("answer-call", ({ to, answer }) => {
       io.to(to).emit("call-answered", {
         from: userId,
@@ -108,6 +127,7 @@ module.exports = (io) => {
       });
     });
 
+    // 🔥 ICE CANDIDATES
     socket.on("ice-candidate", ({ to, candidate }) => {
       io.to(to).emit("ice-candidate", {
         from: userId,
@@ -115,11 +135,32 @@ module.exports = (io) => {
       });
     });
 
-    socket.on("end-call", ({ to }) => {
-      activeCalls.delete(userId);
-      activeCalls.delete(to);
+    // 🔥 CALL REJECTED
+    socket.on("call-rejected", ({ to }) => {
 
-      io.to(to).emit("call-ended");
+      const partner = activeCalls.get(userId);
+
+      if (partner) {
+        activeCalls.delete(partner);
+        io.to(partner).emit("call-rejected-by-user");
+      }
+
+      activeCalls.delete(userId);
+    });
+
+    // 🔥 END CALL (FIXED VERSION)
+    socket.on("end-call", () => {
+
+      const partnerId = activeCalls.get(userId);
+
+      if (partnerId) {
+        io.to(partnerId).emit("call-ended");
+
+        // remove BOTH SIDES safely
+        activeCalls.delete(partnerId);
+      }
+
+      activeCalls.delete(userId);
     });
 
     /* ================= DISCONNECT ================= */
@@ -129,7 +170,9 @@ module.exports = (io) => {
       onlineUsers.delete(userId);
       io.emit("online_users", Array.from(onlineUsers.keys()));
 
+      // cleanup active call if user disconnects
       const partner = activeCalls.get(userId);
+
       if (partner) {
         activeCalls.delete(userId);
         activeCalls.delete(partner);
