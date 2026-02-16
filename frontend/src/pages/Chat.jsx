@@ -31,6 +31,8 @@ const Chat = () => {
 
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
+    const pendingOfferRef = useRef(null);
+
     const peerRef = useRef(null);
     const localStreamRef = useRef(null);
     const pendingCandidates = useRef([]);
@@ -38,6 +40,8 @@ const Chat = () => {
     const activePartnerRef = useRef(null);
     // --- 1. REF FOR STALE CLOSURE FIX ---
     const endCallRef = useRef();
+
+    const remoteStreamRef = useRef(null);
 
     // --- Message Decryption Logic ---
     const loadAndDecryptMessages = async () => {
@@ -100,10 +104,15 @@ const Chat = () => {
 
         peer.ontrack = (event) => {
             if (!remoteVideoRef.current) return;
-            const remoteStream = new MediaStream();
-            event.streams[0].getTracks().forEach((track) => remoteStream.addTrack(track));
-            remoteVideoRef.current.srcObject = remoteStream;
+
+            if (!remoteStreamRef.current) {
+                remoteStreamRef.current = new MediaStream();
+                remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            }
+
+            remoteStreamRef.current.addTrack(event.track);
         };
+
         return peer;
     };
 
@@ -171,6 +180,9 @@ const Chat = () => {
         setCallType(null);
         setIncomingCall(null);
         setActiveCallPartner(null);
+        remoteStreamRef.current = null;
+        pendingOfferRef.current = null;
+
 
         if (peerRef.current) {
             peerRef.current.onicecandidate = null;
@@ -231,7 +243,10 @@ const Chat = () => {
             } catch (err) { console.error("ICE error:", err); }
         };
 
-        socket.on("incoming-call", (data) => setIncomingCall(data));
+        socket.on("incoming-call", async (data) => {
+            pendingOfferRef.current = data;
+            setIncomingCall(data);
+        });
         socket.on("call-answered", handleCallAnswered);
         socket.on("ice-candidate", handleIce);
         socket.on("call-ended", () => endCallRef.current?.());
@@ -364,7 +379,7 @@ const Chat = () => {
                         <p>{receiver?.username} is calling...</p>
                         <div className="modal-actions">
                             <button className="accept-call" onClick={() => {
-                                handleIncomingCall(incomingCall);
+                                handleIncomingCall(pendingOfferRef.current);
                                 setIncomingCall(null);
                             }}><Check size={28} /></button>
                             <button className="decline-call" onClick={() => {
